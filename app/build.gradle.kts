@@ -61,8 +61,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
 
-    // ML Kit - Japanese text recognition (Phase 3)
-    // implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+    // ML Kit - Japanese text recognition
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
 
     // Kuromoji - Japanese tokenizer (Phase 4)
     // implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
