@@ -26,28 +26,6 @@ fun TranslationResult(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Original Japanese text
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(16.dp),
-        ) {
-            Text(
-                text = "Original",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = result.originalText,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-
         // Full translation (when online)
         result.fullTranslation?.let { translation ->
             Column(
@@ -72,19 +50,8 @@ fun TranslationResult(
         }
 
         // Word breakdown
-        if (result.words.isNotEmpty()) {
-            Text(
-                text = "Word Breakdown",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-
-            result.words.forEach { word ->
-                WordCard(word = word)
-            }
+        result.words.forEach { word ->
+            WordCard(word = word)
         }
     }
 }
