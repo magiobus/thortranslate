@@ -4,12 +4,17 @@ import android.app.Activity
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -24,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,9 +43,11 @@ import com.kanjilens.capture.ScreenCaptureService
 import com.kanjilens.data.models.AnalysisResult
 import com.kanjilens.data.models.AppSettings
 import com.kanjilens.data.models.CaptureState
+import com.kanjilens.data.models.TranslationResult
 import com.kanjilens.ocr.TextRecognizer
+import com.kanjilens.translate.OpenAITranslator
 import com.kanjilens.ui.components.CaptureButton
-import com.kanjilens.ui.components.TranslationResult
+import com.kanjilens.ui.components.TranslationResultView
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,40 +57,88 @@ fun MainScreen(
     textRecognizer: TextRecognizer,
     tokenizer: JapaneseTokenizer,
     dictionary: DictionaryLookup,
+    translator: OpenAITranslator,
     settings: AppSettings,
-    captureState: CaptureState,
-    onCaptureStateChange: (CaptureState) -> Unit,
+    dictionaryState: CaptureState,
+    translateState: CaptureState,
+    onDictionaryStateChange: (CaptureState) -> Unit,
+    onTranslateStateChange: (CaptureState) -> Unit,
     onSettingsClick: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val textSize by settings.textSize.collectAsState()
+    val appMode by settings.appMode.collectAsState()
+    val apiKey by settings.openaiApiKey.collectAsState()
+    val translateStyle by settings.translateStyle.collectAsState()
 
-    fun doCapture() {
+    val captureState = if (appMode == AppSettings.MODE_TRANSLATE) translateState else dictionaryState
+    val onCaptureStateChange: (CaptureState) -> Unit = if (appMode == AppSettings.MODE_TRANSLATE) {
+        onTranslateStateChange
+    } else {
+        onDictionaryStateChange
+    }
+
+    fun doDictionaryCapture() {
         scope.launch {
-            onCaptureStateChange(CaptureState.Capturing)
+            onDictionaryStateChange(CaptureState.Capturing)
             val bitmap = captureManager.captureScreen()
             if (bitmap == null) {
-                onCaptureStateChange(CaptureState.Error("Failed to capture screen"))
+                onDictionaryStateChange(CaptureState.Error("Failed to capture screen"))
                 return@launch
             }
 
-            onCaptureStateChange(CaptureState.Processing)
+            onDictionaryStateChange(CaptureState.Processing)
 
             val recognizedText = textRecognizer.recognizeText(bitmap)
             if (recognizedText != null) {
                 val tokens = tokenizer.tokenize(recognizedText)
                 val words = dictionary.lookupTokens(tokens)
 
-                onCaptureStateChange(CaptureState.Success(
+                onDictionaryStateChange(CaptureState.DictionarySuccess(
                     AnalysisResult(
                         originalText = recognizedText,
                         words = words,
                     )
                 ))
             } else {
-                onCaptureStateChange(CaptureState.Error("No Japanese text found in screenshot"))
+                onDictionaryStateChange(CaptureState.Error("No Japanese text found in screenshot"))
             }
+        }
+    }
+
+    fun doTranslateCapture() {
+        scope.launch {
+            if (apiKey.isBlank()) {
+                onTranslateStateChange(CaptureState.Error("Add your OpenAI API key in Settings"))
+                return@launch
+            }
+
+            onTranslateStateChange(CaptureState.Capturing)
+            val bitmap = captureManager.captureScreen()
+            if (bitmap == null) {
+                onTranslateStateChange(CaptureState.Error("Failed to capture screen"))
+                return@launch
+            }
+
+            onTranslateStateChange(CaptureState.Processing)
+
+            val translation = translator.translateScreen(bitmap, apiKey, translateStyle)
+            if (translation != null) {
+                onTranslateStateChange(CaptureState.TranslateSuccess(
+                    TranslationResult(translation = translation)
+                ))
+            } else {
+                onTranslateStateChange(CaptureState.Error("Translation failed. Check your API key."))
+            }
+        }
+    }
+
+    fun doCapture() {
+        if (appMode == AppSettings.MODE_TRANSLATE) {
+            doTranslateCapture()
+        } else {
+            doDictionaryCapture()
         }
     }
 
@@ -150,16 +206,28 @@ fun MainScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
+            // Mode toggle
+            ModeToggle(
+                currentMode = appMode,
+                onModeChange = { settings.setAppMode(it) },
+            )
+
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .padding(top = 8.dp)
                     .verticalScroll(rememberScrollState()),
                 contentAlignment = Alignment.Center,
             ) {
                 when (val state = captureState) {
                     is CaptureState.Idle -> {
+                        val hint = if (appMode == AppSettings.MODE_TRANSLATE) {
+                            "Press the button to capture\nand translate the screen"
+                        } else {
+                            "Press the button to capture\nand look up words"
+                        }
                         Text(
-                            text = "Press the button to capture\nand translate text",
+                            text = hint,
                             textAlign = TextAlign.Center,
                             fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -173,16 +241,29 @@ fun MainScreen(
                         )
                     }
                     is CaptureState.Processing -> {
+                        val label = if (appMode == AppSettings.MODE_TRANSLATE) {
+                            "Translating..."
+                        } else {
+                            "Reading text..."
+                        }
                         Text(
-                            text = "Reading text...",
+                            text = label,
                             fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    is CaptureState.Success -> {
-                        TranslationResult(
+                    is CaptureState.DictionarySuccess -> {
+                        TranslationResultView(
                             result = state.result,
                             textSize = textSize,
+                        )
+                    }
+                    is CaptureState.TranslateSuccess -> {
+                        Text(
+                            text = state.result.translation,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 24.sp,
                         )
                     }
                     is CaptureState.Error -> {
@@ -203,5 +284,66 @@ fun MainScreen(
                 modifier = Modifier.padding(bottom = 16.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun ModeToggle(
+    currentMode: Int,
+    onModeChange: (Int) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        ModeOption(
+            label = "Translate",
+            selected = currentMode == AppSettings.MODE_TRANSLATE,
+            onClick = { onModeChange(AppSettings.MODE_TRANSLATE) },
+            modifier = Modifier.weight(1f),
+        )
+        ModeOption(
+            label = "JP Dictionary",
+            selected = currentMode == AppSettings.MODE_DICTIONARY,
+            onClick = { onModeChange(AppSettings.MODE_DICTIONARY) },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun ModeOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val bgColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    val textColor = if (selected) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(bgColor)
+            .clickable { onClick() }
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+        )
     }
 }

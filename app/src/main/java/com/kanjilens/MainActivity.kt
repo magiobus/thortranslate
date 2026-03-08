@@ -14,6 +14,7 @@ import com.kanjilens.capture.ScreenCaptureManager
 import com.kanjilens.data.models.AppSettings
 import com.kanjilens.data.models.CaptureState
 import com.kanjilens.ocr.TextRecognizer
+import com.kanjilens.translate.OpenAITranslator
 import com.kanjilens.ui.screens.MainScreen
 import com.kanjilens.ui.screens.SettingsScreen
 import com.kanjilens.ui.theme.KanjiLensTheme
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
     lateinit var tokenizer: JapaneseTokenizer
     lateinit var dictionary: DictionaryLookup
     lateinit var settings: AppSettings
+    val translator = OpenAITranslator()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,8 +39,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             KanjiLensTheme {
                 var showSettings by remember { mutableStateOf(false) }
-                // Hoist captureState here so it survives navigation to Settings
-                var captureState by remember { mutableStateOf<CaptureState>(CaptureState.Idle) }
+                var dictionaryState by remember { mutableStateOf<CaptureState>(CaptureState.Idle) }
+                var translateState by remember { mutableStateOf<CaptureState>(CaptureState.Idle) }
 
                 if (showSettings) {
                     SettingsScreen(
@@ -51,9 +53,12 @@ class MainActivity : ComponentActivity() {
                         textRecognizer = textRecognizer,
                         tokenizer = tokenizer,
                         dictionary = dictionary,
+                        translator = translator,
                         settings = settings,
-                        captureState = captureState,
-                        onCaptureStateChange = { captureState = it },
+                        dictionaryState = dictionaryState,
+                        translateState = translateState,
+                        onDictionaryStateChange = { dictionaryState = it },
+                        onTranslateStateChange = { translateState = it },
                         onSettingsClick = { showSettings = true },
                     )
                 }

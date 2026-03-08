@@ -81,9 +81,8 @@ dependencies {
     // implementation("androidx.room:room-ktx:2.6.1")
     // ksp("androidx.room:room-compiler:2.6.1")
 
-    // Retrofit - DeepL API (Phase 6)
-    // implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    // implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    // OkHttp - OpenAI API
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

@@ -17,7 +17,7 @@ import com.kanjilens.data.models.AnalysisResult
 import com.kanjilens.data.models.AppSettings
 
 @Composable
-fun TranslationResult(
+fun TranslationResultView(
     result: AnalysisResult,
     textSize: Int = AppSettings.TEXT_SIZE_MEDIUM,
     modifier: Modifier = Modifier,
