@@ -40,6 +40,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        resources {
+            pickFirsts += setOf("META-INF/CONTRIBUTORS.md", "META-INF/LICENSE.md")
+        }
+    }
 }
 
 dependencies {
@@ -64,8 +70,11 @@ dependencies {
     // ML Kit - Japanese text recognition
     implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
 
-    // Kuromoji - Japanese tokenizer (Phase 4)
-    // implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
+    // Kuromoji - Japanese tokenizer
+    implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
+
+    // Gson - JSON parsing for dictionary
+    implementation("com.google.code.gson:gson:2.11.0")
 
     // Room - SQLite for JMDict (Phase 4)
     // implementation("androidx.room:room-runtime:2.6.1")

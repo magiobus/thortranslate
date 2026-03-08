@@ -46,6 +46,8 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     captureManager: ScreenCaptureManager,
     textRecognizer: TextRecognizer,
+    tokenizer: com.kanjilens.analysis.JapaneseTokenizer,
+    dictionary: com.kanjilens.analysis.DictionaryLookup,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -66,10 +68,14 @@ fun MainScreen(
             // Run OCR on the captured bitmap
             val recognizedText = textRecognizer.recognizeText(bitmap)
             if (recognizedText != null) {
+                // Tokenize and look up each word
+                val tokens = tokenizer.tokenize(recognizedText)
+                val words = dictionary.lookupTokens(tokens)
+
                 captureState = CaptureState.Success(
                     AnalysisResult(
                         originalText = recognizedText,
-                        words = emptyList(), // Phase 4: tokenizer will fill this
+                        words = words,
                     )
                 )
             } else {
