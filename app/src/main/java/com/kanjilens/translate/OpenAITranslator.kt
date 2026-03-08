@@ -2,6 +2,7 @@ package com.kanjilens.translate
 
 import android.graphics.Bitmap
 import android.util.Base64
+import com.kanjilens.data.models.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -11,9 +12,15 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
-class OpenAITranslator {
+sealed class TranslateResult {
+    data class Success(val text: String) : TranslateResult()
+    data class Error(val message: String) : TranslateResult()
+}
+
+class ScreenTranslator {
 
     companion object {
         const val STYLE_AUTO = 0
@@ -26,45 +33,136 @@ class OpenAITranslator {
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    suspend fun translateScreen(bitmap: Bitmap, apiKey: String, style: Int = STYLE_AUTO): String? {
+    suspend fun translateScreen(
+        bitmap: Bitmap,
+        apiKey: String,
+        style: Int = STYLE_AUTO,
+        model: Int = AppSettings.MODEL_GPT4O_MINI,
+    ): TranslateResult {
         return withContext(Dispatchers.IO) {
             try {
                 val base64Image = bitmapToBase64(bitmap)
-                val requestBody = buildRequest(base64Image, style)
+                val prompt = getSystemPrompt(style)
 
-                val request = Request.Builder()
-                    .url("https://api.openai.com/v1/chat/completions")
-                    .addHeader("Authorization", "Bearer $apiKey")
-                    .addHeader("Content-Type", "application/json")
-                    .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
-                    .build()
-
-                val response = client.newCall(request).execute()
-                val body = response.body?.string()
-
-                if (!response.isSuccessful || body == null) {
-                    return@withContext null
+                val result = when (model) {
+                    AppSettings.MODEL_GEMINI_FLASH -> callGemini(base64Image, apiKey, prompt)
+                    else -> callOpenAI(base64Image, apiKey, prompt)
                 }
 
-                val json = JSONObject(body)
-                val choices = json.getJSONArray("choices")
-                if (choices.length() > 0) {
-                    choices.getJSONObject(0)
-                        .getJSONObject("message")
-                        .getString("content")
+                if (result != null) {
+                    TranslateResult.Success(result)
                 } else {
-                    null
+                    TranslateResult.Error("Translation failed. Check your API key.")
                 }
+            } catch (e: UnknownHostException) {
+                TranslateResult.Error("No internet connection")
+            } catch (e: java.net.SocketTimeoutException) {
+                TranslateResult.Error("Connection timed out. Try again.")
             } catch (e: Exception) {
                 e.printStackTrace()
-                null
+                TranslateResult.Error("Translation failed: ${e.message ?: "unknown error"}")
             }
         }
     }
 
+    private fun callOpenAI(base64Image: String, apiKey: String, systemPrompt: String): String? {
+        val body = JSONObject().apply {
+            put("model", "gpt-4o-mini")
+            put("max_tokens", 1000)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "system")
+                    put("content", systemPrompt)
+                })
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("type", "text")
+                            put("text", "Translate this game screen.")
+                        })
+                        put(JSONObject().apply {
+                            put("type", "image_url")
+                            put("image_url", JSONObject().apply {
+                                put("url", "data:image/jpeg;base64,$base64Image")
+                                put("detail", "low")
+                            })
+                        })
+                    })
+                })
+            })
+        }
+
+        val request = Request.Builder()
+            .url("https://api.openai.com/v1/chat/completions")
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+
+        val response = client.newCall(request).execute()
+        val responseBody = response.body?.string() ?: return null
+        if (!response.isSuccessful) return null
+
+        val json = JSONObject(responseBody)
+        val choices = json.getJSONArray("choices")
+        return if (choices.length() > 0) {
+            choices.getJSONObject(0)
+                .getJSONObject("message")
+                .getString("content")
+        } else null
+    }
+
+    private fun callGemini(base64Image: String, apiKey: String, systemPrompt: String): String? {
+        val body = JSONObject().apply {
+            put("system_instruction", JSONObject().apply {
+                put("parts", JSONArray().apply {
+                    put(JSONObject().apply { put("text", systemPrompt) })
+                })
+            })
+            put("contents", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("text", "Translate this game screen.")
+                        })
+                        put(JSONObject().apply {
+                            put("inline_data", JSONObject().apply {
+                                put("mime_type", "image/jpeg")
+                                put("data", base64Image)
+                            })
+                        })
+                    })
+                })
+            })
+            put("generationConfig", JSONObject().apply {
+                put("maxOutputTokens", 1000)
+            })
+        }
+
+        val request = Request.Builder()
+            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
+            .addHeader("Content-Type", "application/json")
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+
+        val response = client.newCall(request).execute()
+        val responseBody = response.body?.string() ?: return null
+        if (!response.isSuccessful) return null
+
+        val json = JSONObject(responseBody)
+        val candidates = json.optJSONArray("candidates") ?: return null
+        if (candidates.length() == 0) return null
+
+        return candidates.getJSONObject(0)
+            .getJSONObject("content")
+            .getJSONArray("parts")
+            .getJSONObject(0)
+            .getString("text")
+    }
+
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val stream = ByteArrayOutputStream()
-        // Scale down if too large to save tokens
         val scaled = if (bitmap.width > 1024) {
             val ratio = 1024f / bitmap.width
             Bitmap.createScaledBitmap(
@@ -106,7 +204,7 @@ class OpenAITranslator {
                     "- Keep it concise but useful\n" +
                     "- $baseRules"
             }
-            else -> { // AUTO - always translate + explain
+            else -> { // AUTO
                 "You are a game assistant helping someone play a game that's not in their language. The screen may be in any language (Japanese, Chinese, Korean, etc).\n\n" +
                     "Always do both:\n" +
                     "1. Translate all text on screen to English\n" +
@@ -119,41 +217,6 @@ class OpenAITranslator {
                     "- Keep it concise — you just want to keep playing\n" +
                     "- $baseRules"
             }
-        }
-    }
-
-    private fun buildRequest(base64Image: String, style: Int): JSONObject {
-        val systemMessage = JSONObject().apply {
-            put("role", "system")
-            put("content", getSystemPrompt(style))
-        }
-
-        val imageContent = JSONArray().apply {
-            put(JSONObject().apply {
-                put("type", "text")
-                put("text", "Translate this game screen.")
-            })
-            put(JSONObject().apply {
-                put("type", "image_url")
-                put("image_url", JSONObject().apply {
-                    put("url", "data:image/jpeg;base64,$base64Image")
-                    put("detail", "low")
-                })
-            })
-        }
-
-        val userMessage = JSONObject().apply {
-            put("role", "user")
-            put("content", imageContent)
-        }
-
-        return JSONObject().apply {
-            put("model", "gpt-4o-mini")
-            put("messages", JSONArray().apply {
-                put(systemMessage)
-                put(userMessage)
-            })
-            put("max_tokens", 1000)
         }
     }
 }

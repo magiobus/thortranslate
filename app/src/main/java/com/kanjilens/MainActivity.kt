@@ -14,7 +14,7 @@ import com.kanjilens.capture.ScreenCaptureManager
 import com.kanjilens.data.models.AppSettings
 import com.kanjilens.data.models.CaptureState
 import com.kanjilens.ocr.TextRecognizer
-import com.kanjilens.translate.OpenAITranslator
+import com.kanjilens.translate.ScreenTranslator
 import com.kanjilens.ui.screens.MainScreen
 import com.kanjilens.ui.screens.SettingsScreen
 import com.kanjilens.ui.theme.KanjiLensTheme
@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
     lateinit var tokenizer: JapaneseTokenizer
     lateinit var dictionary: DictionaryLookup
     lateinit var settings: AppSettings
-    val translator = OpenAITranslator()
+    val translator = ScreenTranslator()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

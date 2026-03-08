@@ -46,10 +46,15 @@ fun SettingsScreen(
 ) {
     val textSize by settings.textSize.collectAsState()
     val openaiApiKey by settings.openaiApiKey.collectAsState()
+    val geminiApiKey by settings.geminiApiKey.collectAsState()
     val translateStyle by settings.translateStyle.collectAsState()
+    val aiModel by settings.aiModel.collectAsState()
 
-    var apiKeyInput by remember { mutableStateOf(openaiApiKey) }
+    var openaiKeyInput by remember { mutableStateOf(openaiApiKey) }
+    var geminiKeyInput by remember { mutableStateOf(geminiApiKey) }
     var showApiKey by remember { mutableStateOf(false) }
+
+    val apiKeyInput = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) geminiKeyInput else openaiKeyInput
 
     Scaffold(
         topBar = {
@@ -112,7 +117,7 @@ fun SettingsScreen(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
-            // Translate Style
+            // Translation Style
             SettingsSection(title = "Translation Style") {
                 Text(
                     text = "Controls how Translate mode responds",
@@ -147,10 +152,49 @@ fun SettingsScreen(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
-            // OpenAI API Key
-            SettingsSection(title = "OpenAI API Key") {
+            // AI Model
+            SettingsSection(title = "AI Model") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SettingsOption(
+                        label = "GPT-4o mini",
+                        selected = aiModel == AppSettings.MODEL_GPT4O_MINI,
+                        onClick = { settings.setAiModel(AppSettings.MODEL_GPT4O_MINI) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    SettingsOption(
+                        label = "Gemini Flash",
+                        selected = aiModel == AppSettings.MODEL_GEMINI_FLASH,
+                        onClick = { settings.setAiModel(AppSettings.MODEL_GEMINI_FLASH) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+
+            // API Key
+            val keyLabel = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
+                "Google AI API Key"
+            } else {
+                "OpenAI API Key"
+            }
+            val keyHint = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
+                "Get your key at aistudio.google.com"
+            } else {
+                "Get your key at platform.openai.com"
+            }
+            val keyPlaceholder = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
+                "AIza..."
+            } else {
+                "sk-..."
+            }
+
+            SettingsSection(title = keyLabel) {
                 Text(
-                    text = "Required for Translate mode. Get your key at platform.openai.com",
+                    text = keyHint,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 4.dp),
@@ -158,10 +202,15 @@ fun SettingsScreen(
                 OutlinedTextField(
                     value = apiKeyInput,
                     onValueChange = {
-                        apiKeyInput = it
-                        settings.setOpenaiApiKey(it)
+                        if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
+                            geminiKeyInput = it
+                            settings.setGeminiApiKey(it)
+                        } else {
+                            openaiKeyInput = it
+                            settings.setOpenaiApiKey(it)
+                        }
                     },
-                    placeholder = { Text("sk-...") },
+                    placeholder = { Text(keyPlaceholder) },
                     singleLine = true,
                     visualTransformation = if (showApiKey) {
                         VisualTransformation.None

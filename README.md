@@ -4,27 +4,37 @@ Android app for translating and understanding foreign-language game screens in r
 
 ## What it does
 
-**Translate mode** — Captures a screenshot of the top screen, sends it to GPT-4o-mini (vision), and returns a translation + explanation of what's happening. Works with any language (Japanese, Chinese, Korean, etc). Three styles:
+**Translate mode** (primary) — Captures a screenshot of the top screen, sends it to an AI vision model, and returns a translation + explanation of what's happening. Works with any language (Japanese, Chinese, Korean, etc). Three styles:
 - **Auto** (default): Translates and explains what to do next
 - **Translate**: Just translates the text, no extra explanation
 - **Explain**: Full translation with detailed guidance on how to progress
 
 **JP Dictionary mode** — Offline Japanese word-by-word breakdown. Captures text via OCR, tokenizes it, and looks up each word in a 212K-entry dictionary (JMDict). Shows kanji, reading, meaning, and JLPT level. No internet required.
 
+## Supported AI models
+
+| Model | Provider | Approx. cost per capture |
+|-------|----------|--------------------------|
+| **GPT-4o mini** | OpenAI | ~$0.01-0.02 |
+| **Gemini 2.5 Flash** | Google | Free tier available |
+
+You can switch between models in Settings. Each model stores its own API key separately.
+
 ## Tech stack
 
 - **Kotlin + Jetpack Compose** — UI and app logic
 - **MediaProjection API** — Screen capture (with ForegroundService for Android 14+)
-- **OpenAI GPT-4o-mini** — Vision API for Translate mode (~$0.01-0.02 per capture)
+- **OpenAI GPT-4o-mini / Google Gemini 2.5 Flash** — Vision APIs for Translate mode
 - **ML Kit Text Recognition v2** — On-device Japanese OCR for Dictionary mode
 - **Kuromoji** — Japanese morphological analyzer/tokenizer
 - **JMDict** — 212,478 entry offline Japanese-English dictionary
+- **OkHttp** — HTTP client for API calls
 
 ## Setup
 
 ### Requirements
 - Android SDK (compileSdk 35, minSdk 26)
-- An OpenAI API key (for Translate mode only)
+- An API key for Translate mode (OpenAI or Google AI, depending on chosen model)
 
 ### Build
 ```bash
@@ -42,9 +52,10 @@ echo "sdk.dir=$HOME/Android/sdk" > local.properties
 ### Configuration
 1. Open ThorLens on your device
 2. Tap **...** (top right) to open Settings
-3. Paste your OpenAI API key
-4. Choose your preferred translation style (Auto/Translate/Explain)
-5. Adjust text size if needed (S/M/L)
+3. Choose your AI model (GPT-4o mini or Gemini Flash)
+4. Paste your API key (OpenAI: platform.openai.com / Google: aistudio.google.com)
+5. Choose your preferred translation style (Auto/Translate/Explain)
+6. Adjust text size if needed (S/M/L)
 
 ## Usage
 
@@ -68,14 +79,14 @@ app/src/main/java/com/kanjilens/
 │   ├── JapaneseTokenizer.kt     # Kuromoji tokenizer wrapper
 │   └── DictionaryLookup.kt      # JMDict dictionary lookup
 ├── translate/
-│   └── OpenAITranslator.kt      # GPT-4o-mini vision API client
+│   └── ScreenTranslator.kt      # Multi-model AI translator (OpenAI + Gemini)
 ├── data/models/
 │   ├── AppSettings.kt           # SharedPreferences with StateFlow
 │   └── CaptureState.kt          # State models (WordEntry, AnalysisResult, etc)
 └── ui/
     ├── screens/
     │   ├── MainScreen.kt        # Main UI with mode toggle
-    │   └── SettingsScreen.kt    # Settings (text size, style, API key)
+    │   └── SettingsScreen.kt    # Settings (model, style, keys, text size)
     ├── components/
     │   ├── CaptureButton.kt     # Capture button with loading state
     │   ├── TranslationResult.kt # Dictionary word breakdown view

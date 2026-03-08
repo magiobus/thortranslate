@@ -45,7 +45,8 @@ import com.kanjilens.data.models.AppSettings
 import com.kanjilens.data.models.CaptureState
 import com.kanjilens.data.models.TranslationResult
 import com.kanjilens.ocr.TextRecognizer
-import com.kanjilens.translate.OpenAITranslator
+import com.kanjilens.translate.ScreenTranslator
+import com.kanjilens.translate.TranslateResult
 import com.kanjilens.ui.components.CaptureButton
 import com.kanjilens.ui.components.TranslationResultView
 import kotlinx.coroutines.launch
@@ -57,7 +58,7 @@ fun MainScreen(
     textRecognizer: TextRecognizer,
     tokenizer: JapaneseTokenizer,
     dictionary: DictionaryLookup,
-    translator: OpenAITranslator,
+    translator: ScreenTranslator,
     settings: AppSettings,
     dictionaryState: CaptureState,
     translateState: CaptureState,
@@ -69,8 +70,11 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val textSize by settings.textSize.collectAsState()
     val appMode by settings.appMode.collectAsState()
-    val apiKey by settings.openaiApiKey.collectAsState()
     val translateStyle by settings.translateStyle.collectAsState()
+    val aiModel by settings.aiModel.collectAsState()
+    val openaiKey by settings.openaiApiKey.collectAsState()
+    val geminiKey by settings.geminiApiKey.collectAsState()
+    val apiKey = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) geminiKey else openaiKey
 
     val captureState = if (appMode == AppSettings.MODE_TRANSLATE) translateState else dictionaryState
     val onCaptureStateChange: (CaptureState) -> Unit = if (appMode == AppSettings.MODE_TRANSLATE) {
@@ -110,7 +114,7 @@ fun MainScreen(
     fun doTranslateCapture() {
         scope.launch {
             if (apiKey.isBlank()) {
-                onTranslateStateChange(CaptureState.Error("Add your OpenAI API key in Settings"))
+                onTranslateStateChange(CaptureState.Error("Add your API key in Settings"))
                 return@launch
             }
 
@@ -123,13 +127,15 @@ fun MainScreen(
 
             onTranslateStateChange(CaptureState.Processing)
 
-            val translation = translator.translateScreen(bitmap, apiKey, translateStyle)
-            if (translation != null) {
-                onTranslateStateChange(CaptureState.TranslateSuccess(
-                    TranslationResult(translation = translation)
-                ))
-            } else {
-                onTranslateStateChange(CaptureState.Error("Translation failed. Check your API key."))
+            when (val result = translator.translateScreen(bitmap, apiKey, translateStyle, aiModel)) {
+                is TranslateResult.Success -> {
+                    onTranslateStateChange(CaptureState.TranslateSuccess(
+                        TranslationResult(translation = result.text)
+                    ))
+                }
+                is TranslateResult.Error -> {
+                    onTranslateStateChange(CaptureState.Error(result.message))
+                }
             }
         }
     }
@@ -241,8 +247,14 @@ fun MainScreen(
                         )
                     }
                     is CaptureState.Processing -> {
+                        val modelName = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) "Gemini Flash" else "GPT-4o mini"
+                        val styleName = when (translateStyle) {
+                            AppSettings.TRANSLATE_STYLE_TRANSLATE_ONLY -> "translate"
+                            AppSettings.TRANSLATE_STYLE_TRANSLATE_AND_EXPLAIN -> "explain"
+                            else -> "auto"
+                        }
                         val label = if (appMode == AppSettings.MODE_TRANSLATE) {
-                            "Translating..."
+                            "Translating using $modelName ($styleName)..."
                         } else {
                             "Reading text..."
                         }
@@ -259,11 +271,16 @@ fun MainScreen(
                         )
                     }
                     is CaptureState.TranslateSuccess -> {
+                        val translateFontSize = when (textSize) {
+                            AppSettings.TEXT_SIZE_SMALL -> 14.sp
+                            AppSettings.TEXT_SIZE_LARGE -> 20.sp
+                            else -> 16.sp
+                        }
                         Text(
                             text = state.result.translation,
-                            fontSize = 16.sp,
+                            fontSize = translateFontSize,
                             color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 24.sp,
+                            lineHeight = translateFontSize * 1.5,
                         )
                     }
                     is CaptureState.Error -> {
