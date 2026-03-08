@@ -8,22 +8,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,9 +30,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.kanjilens.analysis.DictionaryLookup
+import com.kanjilens.analysis.JapaneseTokenizer
 import com.kanjilens.capture.ScreenCaptureManager
 import com.kanjilens.capture.ScreenCaptureService
 import com.kanjilens.data.models.AnalysisResult
+import com.kanjilens.data.models.AppSettings
 import com.kanjilens.data.models.CaptureState
 import com.kanjilens.ocr.TextRecognizer
 import com.kanjilens.ui.components.CaptureButton
@@ -46,45 +47,45 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     captureManager: ScreenCaptureManager,
     textRecognizer: TextRecognizer,
-    tokenizer: com.kanjilens.analysis.JapaneseTokenizer,
-    dictionary: com.kanjilens.analysis.DictionaryLookup,
+    tokenizer: JapaneseTokenizer,
+    dictionary: DictionaryLookup,
+    settings: AppSettings,
+    captureState: CaptureState,
+    onCaptureStateChange: (CaptureState) -> Unit,
+    onSettingsClick: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
-    var captureState by remember { mutableStateOf<CaptureState>(CaptureState.Idle) }
+    val textSize by settings.textSize.collectAsState()
 
     fun doCapture() {
         scope.launch {
-            captureState = CaptureState.Capturing
+            onCaptureStateChange(CaptureState.Capturing)
             val bitmap = captureManager.captureScreen()
             if (bitmap == null) {
-                captureState = CaptureState.Error("Failed to capture screen")
+                onCaptureStateChange(CaptureState.Error("Failed to capture screen"))
                 return@launch
             }
 
-            captureState = CaptureState.Processing
+            onCaptureStateChange(CaptureState.Processing)
 
-            // Run OCR on the captured bitmap
             val recognizedText = textRecognizer.recognizeText(bitmap)
             if (recognizedText != null) {
-                // Tokenize and look up each word
                 val tokens = tokenizer.tokenize(recognizedText)
                 val words = dictionary.lookupTokens(tokens)
 
-                captureState = CaptureState.Success(
+                onCaptureStateChange(CaptureState.Success(
                     AnalysisResult(
                         originalText = recognizedText,
                         words = words,
                     )
-                )
+                ))
             } else {
-                captureState = CaptureState.Error("No Japanese text found in screenshot")
+                onCaptureStateChange(CaptureState.Error("No Japanese text found in screenshot"))
             }
         }
     }
 
-    // MediaProjection permission launcher
     val projectionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -97,12 +98,12 @@ fun MainScreen(
             }
             ContextCompat.startForegroundService(context, serviceIntent)
 
-            captureState = CaptureState.Capturing
+            onCaptureStateChange(CaptureState.Capturing)
             captureManager.awaitProjectionReady {
                 doCapture()
             }
         } else {
-            captureState = CaptureState.Error("Permission denied")
+            onCaptureStateChange(CaptureState.Error("Permission denied"))
         }
     }
 
@@ -120,9 +121,19 @@ fun MainScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "KanjiLens",
+                        text = "ThorLens",
                         fontWeight = FontWeight.Bold,
                     )
+                },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Text(
+                            text = "...",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -139,7 +150,6 @@ fun MainScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Results area (scrollable)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -149,7 +159,7 @@ fun MainScreen(
                 when (val state = captureState) {
                     is CaptureState.Idle -> {
                         Text(
-                            text = "Press the button to capture\nand translate Japanese text",
+                            text = "Press the button to capture\nand translate text",
                             textAlign = TextAlign.Center,
                             fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -164,13 +174,16 @@ fun MainScreen(
                     }
                     is CaptureState.Processing -> {
                         Text(
-                            text = "Reading Japanese text...",
+                            text = "Reading text...",
                             fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     is CaptureState.Success -> {
-                        TranslationResult(result = state.result)
+                        TranslationResult(
+                            result = state.result,
+                            textSize = textSize,
+                        )
                     }
                     is CaptureState.Error -> {
                         Text(
@@ -183,7 +196,6 @@ fun MainScreen(
                 }
             }
 
-            // Capture button at bottom
             CaptureButton(
                 isProcessing = captureState is CaptureState.Capturing
                     || captureState is CaptureState.Processing,

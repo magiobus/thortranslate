@@ -6,25 +6,25 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kanjilens.data.models.AnalysisResult
+import com.kanjilens.data.models.AppSettings
 
 @Composable
 fun TranslationResult(
     result: AnalysisResult,
+    textSize: Int = AppSettings.TEXT_SIZE_MEDIUM,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Full translation (when online)
         result.fullTranslation?.let { translation ->
@@ -51,7 +51,7 @@ fun TranslationResult(
 
         // Word breakdown
         result.words.forEach { word ->
-            WordCard(word = word)
+            WordCard(word = word, textSize = textSize)
         }
     }
 }

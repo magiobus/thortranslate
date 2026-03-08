@@ -4,11 +4,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.kanjilens.analysis.DictionaryLookup
 import com.kanjilens.analysis.JapaneseTokenizer
 import com.kanjilens.capture.ScreenCaptureManager
+import com.kanjilens.data.models.AppSettings
+import com.kanjilens.data.models.CaptureState
 import com.kanjilens.ocr.TextRecognizer
 import com.kanjilens.ui.screens.MainScreen
+import com.kanjilens.ui.screens.SettingsScreen
 import com.kanjilens.ui.theme.KanjiLensTheme
 
 class MainActivity : ComponentActivity() {
@@ -17,6 +24,7 @@ class MainActivity : ComponentActivity() {
     lateinit var textRecognizer: TextRecognizer
     lateinit var tokenizer: JapaneseTokenizer
     lateinit var dictionary: DictionaryLookup
+    lateinit var settings: AppSettings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,15 +32,31 @@ class MainActivity : ComponentActivity() {
         textRecognizer = TextRecognizer()
         tokenizer = JapaneseTokenizer()
         dictionary = DictionaryLookup(this)
+        settings = AppSettings(this)
         enableEdgeToEdge()
         setContent {
             KanjiLensTheme {
-                MainScreen(
-                    captureManager = captureManager,
-                    textRecognizer = textRecognizer,
-                    tokenizer = tokenizer,
-                    dictionary = dictionary,
-                )
+                var showSettings by remember { mutableStateOf(false) }
+                // Hoist captureState here so it survives navigation to Settings
+                var captureState by remember { mutableStateOf<CaptureState>(CaptureState.Idle) }
+
+                if (showSettings) {
+                    SettingsScreen(
+                        settings = settings,
+                        onBack = { showSettings = false },
+                    )
+                } else {
+                    MainScreen(
+                        captureManager = captureManager,
+                        textRecognizer = textRecognizer,
+                        tokenizer = tokenizer,
+                        dictionary = dictionary,
+                        settings = settings,
+                        captureState = captureState,
+                        onCaptureStateChange = { captureState = it },
+                        onSettingsClick = { showSettings = true },
+                    )
+                }
             }
         }
     }

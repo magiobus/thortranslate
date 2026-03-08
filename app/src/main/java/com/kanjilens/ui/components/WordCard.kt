@@ -18,13 +18,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kanjilens.data.models.AppSettings
 import com.kanjilens.data.models.WordEntry
 
 @Composable
 fun WordCard(
     word: WordEntry,
+    textSize: Int = AppSettings.TEXT_SIZE_MEDIUM,
     modifier: Modifier = Modifier,
 ) {
+    val kanjiSize = when (textSize) {
+        AppSettings.TEXT_SIZE_SMALL -> 18.sp
+        AppSettings.TEXT_SIZE_LARGE -> 28.sp
+        else -> 22.sp
+    }
+    val readingSize = when (textSize) {
+        AppSettings.TEXT_SIZE_SMALL -> 11.sp
+        AppSettings.TEXT_SIZE_LARGE -> 18.sp
+        else -> 14.sp
+    }
+    val meaningSize = when (textSize) {
+        AppSettings.TEXT_SIZE_SMALL -> 13.sp
+        AppSettings.TEXT_SIZE_LARGE -> 20.sp
+        else -> 16.sp
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -38,26 +56,28 @@ fun WordCard(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = word.surface,
-                fontSize = 22.sp,
+                fontSize = kanjiSize,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             if (word.reading.isNotEmpty() && word.reading != word.surface) {
                 Text(
                     text = word.reading,
-                    fontSize = 14.sp,
+                    fontSize = readingSize,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
         // Meaning
-        Text(
-            text = word.meaning,
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1.5f).padding(horizontal = 8.dp),
-        )
+        if (word.meaning.isNotEmpty()) {
+            Text(
+                text = word.meaning,
+                fontSize = meaningSize,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1.5f).padding(horizontal = 8.dp),
+            )
+        }
 
         // JLPT badge
         word.jlptLevel?.let { level ->
@@ -69,11 +89,11 @@ fun WordCard(
 @Composable
 fun JlptBadge(level: String) {
     val color = when (level) {
-        "N5" -> Color(0xFF4CAF50) // Green - easiest
+        "N5" -> Color(0xFF4CAF50)
         "N4" -> Color(0xFF8BC34A)
-        "N3" -> Color(0xFFFFC107) // Yellow - medium
+        "N3" -> Color(0xFFFFC107)
         "N2" -> Color(0xFFFF9800)
-        "N1" -> Color(0xFFF44336) // Red - hardest
+        "N1" -> Color(0xFFF44336)
         else -> Color.Gray
     }
 

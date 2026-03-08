@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">KanjiLens</string>
+    <string name="app_name">ThorLens</string>
     <string name="translate_button">Translate</string>
     <string name="no_text_found">No Japanese text found</string>
     <string name="ready_to_capture">Press the button to capture and translate</string>
