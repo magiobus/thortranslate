@@ -13,10 +13,10 @@ Android app for translating and understanding foreign-language game screens in r
 
 ## Supported AI models
 
-| Model | Provider | Approx. cost per capture |
-|-------|----------|--------------------------|
-| **GPT-4o mini** | OpenAI | ~$0.01-0.02 |
+| Model | Provider | Cost |
+|-------|----------|------|
 | **Gemini 2.5 Flash** | Google | Free tier available |
+| **GPT-4o mini** | OpenAI | Pay per use |
 
 You can switch between models in Settings. Each model stores its own API key separately.
 
@@ -34,7 +34,7 @@ You can switch between models in Settings. Each model stores its own API key sep
 
 ### Requirements
 - Android SDK (compileSdk 35, minSdk 26)
-- An API key for Translate mode (OpenAI or Google AI, depending on chosen model)
+- An API key for Translate mode (Google AI free tier recommended, or OpenAI)
 
 ### Build
 ```bash
@@ -52,8 +52,8 @@ echo "sdk.dir=$HOME/Android/sdk" > local.properties
 ### Configuration
 1. Open ThorLens on your device
 2. Tap **...** (top right) to open Settings
-3. Choose your AI model (GPT-4o mini or Gemini Flash)
-4. Paste your API key (OpenAI: platform.openai.com / Google: aistudio.google.com)
+3. Choose your AI model (Gemini Flash is free, or GPT-4o mini)
+4. Paste your API key (Google: aistudio.google.com / OpenAI: platform.openai.com)
 5. Choose your preferred translation style (Auto/Translate/Explain)
 6. Adjust text size if needed (S/M/L)
 

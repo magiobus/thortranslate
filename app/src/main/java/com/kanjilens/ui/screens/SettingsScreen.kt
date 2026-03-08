@@ -159,15 +159,15 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     SettingsOption(
-                        label = "GPT-4o mini",
-                        selected = aiModel == AppSettings.MODEL_GPT4O_MINI,
-                        onClick = { settings.setAiModel(AppSettings.MODEL_GPT4O_MINI) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SettingsOption(
                         label = "Gemini Flash",
                         selected = aiModel == AppSettings.MODEL_GEMINI_FLASH,
                         onClick = { settings.setAiModel(AppSettings.MODEL_GEMINI_FLASH) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    SettingsOption(
+                        label = "GPT-4o mini",
+                        selected = aiModel == AppSettings.MODEL_GPT4O_MINI,
+                        onClick = { settings.setAiModel(AppSettings.MODEL_GPT4O_MINI) },
                         modifier = Modifier.weight(1f),
                     )
                 }

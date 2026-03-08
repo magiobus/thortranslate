@@ -91,8 +91,8 @@ fun HelpScreen(
             HelpDivider()
 
             HelpSection("AI Models")
+            HelpBullet("Gemini 2.5 Flash", "By Google. Free tier available — great to get started.")
             HelpBullet("GPT-4o mini", "By OpenAI. Reliable and fast.")
-            HelpBullet("Gemini 2.5 Flash", "By Google. Free tier available.")
             Spacer(modifier = Modifier.height(4.dp))
             HelpBody("You can switch models in Settings. Each model stores its own API key.")
 
@@ -100,22 +100,22 @@ fun HelpScreen(
 
             HelpSection("How to get an API key")
 
+            HelpSubsection("Google (Gemini Flash) — Free")
+            HelpBody("1. Go to aistudio.google.com")
+            HelpBody("2. Sign in with your Google account")
+            HelpBody("3. Click \"Get API Key\"")
+            HelpBody("4. Click \"Create API key\"")
+            HelpBody("5. Copy the key (starts with AIza...)")
+            HelpBody("6. Paste it in ThorLens Settings")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             HelpSubsection("OpenAI (GPT-4o mini)")
             HelpBody("1. Go to platform.openai.com")
             HelpBody("2. Create an account or sign in")
             HelpBody("3. Go to API Keys section")
             HelpBody("4. Click \"Create new secret key\"")
             HelpBody("5. Copy the key (starts with sk-...)")
-            HelpBody("6. Paste it in ThorLens Settings")
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            HelpSubsection("Google (Gemini Flash)")
-            HelpBody("1. Go to aistudio.google.com")
-            HelpBody("2. Sign in with your Google account")
-            HelpBody("3. Click \"Get API Key\"")
-            HelpBody("4. Click \"Create API key\"")
-            HelpBody("5. Copy the key (starts with AIza...)")
             HelpBody("6. Paste it in ThorLens Settings")
 
             HelpDivider()

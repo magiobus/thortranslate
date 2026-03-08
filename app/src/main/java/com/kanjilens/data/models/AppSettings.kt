@@ -49,7 +49,7 @@ class AppSettings(context: Context) {
     private val _translateStyle = MutableStateFlow(prefs.getInt(KEY_TRANSLATE_STYLE, TRANSLATE_STYLE_AUTO))
     val translateStyle: StateFlow<Int> = _translateStyle
 
-    private val _aiModel = MutableStateFlow(prefs.getInt(KEY_AI_MODEL, MODEL_GPT4O_MINI))
+    private val _aiModel = MutableStateFlow(prefs.getInt(KEY_AI_MODEL, MODEL_GEMINI_FLASH))
     val aiModel: StateFlow<Int> = _aiModel
 
     /** Returns the API key for the currently selected model */
