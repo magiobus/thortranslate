@@ -15,6 +15,7 @@ import com.kanjilens.data.models.AppSettings
 import com.kanjilens.data.models.CaptureState
 import com.kanjilens.ocr.TextRecognizer
 import com.kanjilens.translate.ScreenTranslator
+import com.kanjilens.ui.screens.HelpScreen
 import com.kanjilens.ui.screens.MainScreen
 import com.kanjilens.ui.screens.SettingsScreen
 import com.kanjilens.ui.theme.KanjiLensTheme
@@ -38,17 +39,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             KanjiLensTheme {
-                var showSettings by remember { mutableStateOf(false) }
+                var currentScreen by remember { mutableStateOf("main") }
                 var dictionaryState by remember { mutableStateOf<CaptureState>(CaptureState.Idle) }
                 var translateState by remember { mutableStateOf<CaptureState>(CaptureState.Idle) }
 
-                if (showSettings) {
-                    SettingsScreen(
+                when (currentScreen) {
+                    "settings" -> SettingsScreen(
                         settings = settings,
-                        onBack = { showSettings = false },
+                        onBack = { currentScreen = "main" },
                     )
-                } else {
-                    MainScreen(
+                    "help" -> HelpScreen(
+                        onBack = { currentScreen = "main" },
+                    )
+                    else -> MainScreen(
                         captureManager = captureManager,
                         textRecognizer = textRecognizer,
                         tokenizer = tokenizer,
@@ -59,7 +62,8 @@ class MainActivity : ComponentActivity() {
                         translateState = translateState,
                         onDictionaryStateChange = { dictionaryState = it },
                         onTranslateStateChange = { translateState = it },
-                        onSettingsClick = { showSettings = true },
+                        onSettingsClick = { currentScreen = "settings" },
+                        onHelpClick = { currentScreen = "help" },
                     )
                 }
             }

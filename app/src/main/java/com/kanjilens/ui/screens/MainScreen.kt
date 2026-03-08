@@ -65,6 +65,7 @@ fun MainScreen(
     onDictionaryStateChange: (CaptureState) -> Unit,
     onTranslateStateChange: (CaptureState) -> Unit,
     onSettingsClick: () -> Unit,
+    onHelpClick: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -188,11 +189,18 @@ fun MainScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = onSettingsClick) {
+                    IconButton(onClick = onHelpClick) {
                         Text(
-                            text = "...",
+                            text = "?",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
+                    IconButton(onClick = onSettingsClick) {
+                        Text(
+                            text = "\u2699",
+                            fontSize = 22.sp,
                             color = MaterialTheme.colorScheme.onBackground,
                         )
                     }
