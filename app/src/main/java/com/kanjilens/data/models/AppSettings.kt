@@ -29,6 +29,7 @@ class AppSettings(context: Context) {
 
         const val MODEL_GPT4O_MINI = 0
         const val MODEL_GEMINI_FLASH = 1
+        const val MODEL_MLKIT_OFFLINE = 2
     }
 
     private val prefs: SharedPreferences =
@@ -49,12 +50,16 @@ class AppSettings(context: Context) {
     private val _translateStyle = MutableStateFlow(prefs.getInt(KEY_TRANSLATE_STYLE, TRANSLATE_STYLE_AUTO))
     val translateStyle: StateFlow<Int> = _translateStyle
 
-    private val _aiModel = MutableStateFlow(prefs.getInt(KEY_AI_MODEL, MODEL_GEMINI_FLASH))
+    private val _aiModel = MutableStateFlow(prefs.getInt(KEY_AI_MODEL, MODEL_MLKIT_OFFLINE))
     val aiModel: StateFlow<Int> = _aiModel
 
-    /** Returns the API key for the currently selected model */
+    /** Returns the API key for the currently selected model (empty for offline) */
     val activeApiKey: String
-        get() = if (_aiModel.value == MODEL_GEMINI_FLASH) _geminiApiKey.value else _openaiApiKey.value
+        get() = when (_aiModel.value) {
+            MODEL_GEMINI_FLASH -> _geminiApiKey.value
+            MODEL_MLKIT_OFFLINE -> ""
+            else -> _openaiApiKey.value
+        }
 
     fun setTextSize(size: Int) {
         _textSize.value = size

@@ -27,12 +27,13 @@ class MainActivity : ComponentActivity() {
     lateinit var tokenizer: JapaneseTokenizer
     lateinit var dictionary: DictionaryLookup
     lateinit var settings: AppSettings
-    val translator = ScreenTranslator()
+    lateinit var translator: ScreenTranslator
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         captureManager = ScreenCaptureManager(this)
         textRecognizer = TextRecognizer()
+        translator = ScreenTranslator(textRecognizer)
         tokenizer = JapaneseTokenizer()
         dictionary = DictionaryLookup(this)
         settings = AppSettings(this)

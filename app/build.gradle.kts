@@ -70,6 +70,12 @@ dependencies {
     // ML Kit - Japanese text recognition
     implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
 
+    // ML Kit - On-device translation
+    implementation("com.google.mlkit:translate:17.0.3")
+
+    // Coroutines support for Play Services (ML Kit .await())
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
     // Kuromoji - Japanese tokenizer
     implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
 

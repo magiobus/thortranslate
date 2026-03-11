@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,7 +28,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +52,8 @@ import com.kanjilens.data.models.TranslationResult
 import com.kanjilens.ocr.TextRecognizer
 import com.kanjilens.translate.ScreenTranslator
 import com.kanjilens.translate.TranslateResult
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import com.kanjilens.ui.components.CaptureButton
 import com.kanjilens.ui.components.TranslationResultView
 import kotlinx.coroutines.launch
@@ -75,7 +82,11 @@ fun MainScreen(
     val aiModel by settings.aiModel.collectAsState()
     val openaiKey by settings.openaiApiKey.collectAsState()
     val geminiKey by settings.geminiApiKey.collectAsState()
-    val apiKey = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) geminiKey else openaiKey
+    val apiKey = when (aiModel) {
+        AppSettings.MODEL_GEMINI_FLASH -> geminiKey
+        AppSettings.MODEL_MLKIT_OFFLINE -> ""
+        else -> openaiKey
+    }
 
     val captureState = if (appMode == AppSettings.MODE_TRANSLATE) translateState else dictionaryState
     val onCaptureStateChange: (CaptureState) -> Unit = if (appMode == AppSettings.MODE_TRANSLATE) {
@@ -114,7 +125,7 @@ fun MainScreen(
 
     fun doTranslateCapture() {
         scope.launch {
-            if (apiKey.isBlank()) {
+            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && apiKey.isBlank()) {
                 onTranslateStateChange(CaptureState.Error("Add your API key in Settings"))
                 return@launch
             }
@@ -179,6 +190,13 @@ fun MainScreen(
         }
     }
 
+    var modelMenuExpanded by remember { mutableStateOf(false) }
+    val modelLabel = when (aiModel) {
+        AppSettings.MODEL_GEMINI_FLASH -> "Gemini"
+        AppSettings.MODEL_MLKIT_OFFLINE -> "Offline"
+        else -> "GPT-4o"
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -189,6 +207,45 @@ fun MainScreen(
                     )
                 },
                 actions = {
+                    Box {
+                        Text(
+                            text = modelLabel,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { modelMenuExpanded = true }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                        DropdownMenu(
+                            expanded = modelMenuExpanded,
+                            onDismissRequest = { modelMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Offline (ML Kit)") },
+                                onClick = {
+                                    settings.setAiModel(AppSettings.MODEL_MLKIT_OFFLINE)
+                                    modelMenuExpanded = false
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Gemini Flash") },
+                                onClick = {
+                                    settings.setAiModel(AppSettings.MODEL_GEMINI_FLASH)
+                                    modelMenuExpanded = false
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("GPT-4o mini") },
+                                onClick = {
+                                    settings.setAiModel(AppSettings.MODEL_GPT4O_MINI)
+                                    modelMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
                     IconButton(onClick = onHelpClick) {
                         Text(
                             text = "?",
@@ -255,14 +312,22 @@ fun MainScreen(
                         )
                     }
                     is CaptureState.Processing -> {
-                        val modelName = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) "Gemini Flash" else "GPT-4o mini"
-                        val styleName = when (translateStyle) {
-                            AppSettings.TRANSLATE_STYLE_TRANSLATE_ONLY -> "translate"
-                            AppSettings.TRANSLATE_STYLE_TRANSLATE_AND_EXPLAIN -> "explain"
-                            else -> "auto"
+                        val modelName = when (aiModel) {
+                            AppSettings.MODEL_GEMINI_FLASH -> "Gemini Flash"
+                            AppSettings.MODEL_MLKIT_OFFLINE -> "Offline"
+                            else -> "GPT-4o mini"
                         }
                         val label = if (appMode == AppSettings.MODE_TRANSLATE) {
-                            "Translating using $modelName ($styleName)..."
+                            if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE) {
+                                "Translating offline..."
+                            } else {
+                                val styleName = when (translateStyle) {
+                                    AppSettings.TRANSLATE_STYLE_TRANSLATE_ONLY -> "translate"
+                                    AppSettings.TRANSLATE_STYLE_TRANSLATE_AND_EXPLAIN -> "explain"
+                                    else -> "auto"
+                                }
+                                "Translating using $modelName ($styleName)..."
+                            }
                         } else {
                             "Reading text..."
                         }
@@ -284,12 +349,48 @@ fun MainScreen(
                             AppSettings.TEXT_SIZE_LARGE -> 20.sp
                             else -> 16.sp
                         }
-                        Text(
-                            text = state.result.translation,
-                            fontSize = translateFontSize,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = translateFontSize * 1.5,
-                        )
+                        if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE) {
+                            // Offline: show blocks with JP original + EN translation
+                            Column {
+                                val lines = state.result.translation.split("\n")
+                                var i = 0
+                                while (i < lines.size) {
+                                    val line = lines[i].trim()
+                                    if (line.isEmpty()) {
+                                        i++
+                                        continue
+                                    }
+                                    // JP original line
+                                    Text(
+                                        text = line,
+                                        fontSize = translateFontSize,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        lineHeight = translateFontSize * 1.4,
+                                    )
+                                    // EN translation line (next line if exists)
+                                    if (i + 1 < lines.size && lines[i + 1].trim().isNotEmpty()) {
+                                        Text(
+                                            text = lines[i + 1].trim(),
+                                            fontSize = translateFontSize,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            lineHeight = translateFontSize * 1.4,
+                                        )
+                                        i += 2
+                                    } else {
+                                        i++
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = state.result.translation,
+                                fontSize = translateFontSize,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = translateFontSize * 1.5,
+                            )
+                        }
                     }
                     is CaptureState.Error -> {
                         Text(

@@ -2,8 +2,14 @@ package com.kanjilens.translate
 
 import android.graphics.Bitmap
 import android.util.Base64
+import com.google.mlkit.common.model.DownloadConditions
+import com.google.mlkit.nl.translate.TranslateLanguage
+import com.google.mlkit.nl.translate.Translation
+import com.google.mlkit.nl.translate.TranslatorOptions
 import com.kanjilens.data.models.AppSettings
+import com.kanjilens.ocr.TextRecognizer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -20,7 +26,9 @@ sealed class TranslateResult {
     data class Error(val message: String) : TranslateResult()
 }
 
-class ScreenTranslator {
+class ScreenTranslator(
+    private val textRecognizer: TextRecognizer,
+) {
 
     companion object {
         const val STYLE_AUTO = 0
@@ -33,6 +41,24 @@ class ScreenTranslator {
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
+    private var mlKitTranslator: com.google.mlkit.nl.translate.Translator? = null
+    private var mlKitModelReady = false
+
+    suspend fun ensureOfflineModelReady() {
+        if (mlKitModelReady && mlKitTranslator != null) return
+        withContext(Dispatchers.IO) {
+            val options = TranslatorOptions.Builder()
+                .setSourceLanguage(TranslateLanguage.JAPANESE)
+                .setTargetLanguage(TranslateLanguage.ENGLISH)
+                .build()
+            val translator = Translation.getClient(options)
+            val conditions = DownloadConditions.Builder().build()
+            translator.downloadModelIfNeeded(conditions).await()
+            mlKitTranslator = translator
+            mlKitModelReady = true
+        }
+    }
+
     suspend fun translateScreen(
         bitmap: Bitmap,
         apiKey: String,
@@ -41,6 +67,10 @@ class ScreenTranslator {
     ): TranslateResult {
         return withContext(Dispatchers.IO) {
             try {
+                if (model == AppSettings.MODEL_MLKIT_OFFLINE) {
+                    return@withContext translateOffline(bitmap)
+                }
+
                 val base64Image = bitmapToBase64(bitmap)
                 val prompt = getSystemPrompt(style)
 
@@ -62,6 +92,37 @@ class ScreenTranslator {
                 e.printStackTrace()
                 TranslateResult.Error("Translation failed: ${e.message ?: "unknown error"}")
             }
+        }
+    }
+
+    private suspend fun translateOffline(bitmap: Bitmap): TranslateResult {
+        val blocks = textRecognizer.recognizeTextBlocks(bitmap)
+            ?: return TranslateResult.Error("No text found in screenshot")
+
+        if (blocks.isEmpty()) {
+            return TranslateResult.Error("No text found in screenshot")
+        }
+
+        try {
+            ensureOfflineModelReady()
+        } catch (e: Exception) {
+            return TranslateResult.Error("Download the offline model first. Connect to WiFi and try again.")
+        }
+
+        val translator = mlKitTranslator
+            ?: return TranslateResult.Error("Offline translator not available")
+
+        return try {
+            val result = StringBuilder()
+            for (block in blocks) {
+                val translated = translator.translate(block).await()
+                result.appendLine(block)
+                result.appendLine(translated)
+                result.appendLine()
+            }
+            TranslateResult.Success(result.toString().trimEnd())
+        } catch (e: Exception) {
+            TranslateResult.Error("Offline translation failed: ${e.message ?: "unknown error"}")
         }
     }
 
