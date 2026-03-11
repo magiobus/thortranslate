@@ -30,6 +30,33 @@ class AppSettings(context: Context) {
         const val MODEL_GPT4O_MINI = 0
         const val MODEL_GEMINI_FLASH = 1
         const val MODEL_MLKIT_OFFLINE = 2
+
+        private const val KEY_OUTPUT_LANGUAGE = "output_language"
+
+        const val LANG_ENGLISH = "en"
+        const val LANG_SPANISH = "es"
+        const val LANG_PORTUGUESE = "pt"
+        const val LANG_FRENCH = "fr"
+        const val LANG_GERMAN = "de"
+        const val LANG_ITALIAN = "it"
+        const val LANG_CHINESE = "zh"
+        const val LANG_KOREAN = "ko"
+        const val LANG_RUSSIAN = "ru"
+
+        val OUTPUT_LANGUAGES = listOf(
+            LANG_ENGLISH to "English",
+            LANG_SPANISH to "Spanish",
+            LANG_PORTUGUESE to "Portuguese",
+            LANG_FRENCH to "French",
+            LANG_GERMAN to "German",
+            LANG_ITALIAN to "Italian",
+            LANG_CHINESE to "Chinese",
+            LANG_KOREAN to "Korean",
+            LANG_RUSSIAN to "Russian",
+        )
+
+        fun languageDisplayName(code: String): String =
+            OUTPUT_LANGUAGES.firstOrNull { it.first == code }?.second ?: "English"
     }
 
     private val prefs: SharedPreferences =
@@ -52,6 +79,9 @@ class AppSettings(context: Context) {
 
     private val _aiModel = MutableStateFlow(prefs.getInt(KEY_AI_MODEL, MODEL_MLKIT_OFFLINE))
     val aiModel: StateFlow<Int> = _aiModel
+
+    private val _outputLanguage = MutableStateFlow(prefs.getString(KEY_OUTPUT_LANGUAGE, LANG_ENGLISH) ?: LANG_ENGLISH)
+    val outputLanguage: StateFlow<String> = _outputLanguage
 
     /** Returns the API key for the currently selected model (empty for offline) */
     val activeApiKey: String
@@ -89,5 +119,10 @@ class AppSettings(context: Context) {
     fun setAiModel(model: Int) {
         _aiModel.value = model
         prefs.edit().putInt(KEY_AI_MODEL, model).apply()
+    }
+
+    fun setOutputLanguage(lang: String) {
+        _outputLanguage.value = lang
+        prefs.edit().putString(KEY_OUTPUT_LANGUAGE, lang).apply()
     }
 }

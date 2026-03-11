@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -49,6 +51,7 @@ fun SettingsScreen(
     val geminiApiKey by settings.geminiApiKey.collectAsState()
     val translateStyle by settings.translateStyle.collectAsState()
     val aiModel by settings.aiModel.collectAsState()
+    val outputLanguage by settings.outputLanguage.collectAsState()
 
     var openaiKeyInput by remember { mutableStateOf(openaiApiKey) }
     var geminiKeyInput by remember { mutableStateOf(geminiApiKey) }
@@ -145,6 +148,49 @@ fun SettingsScreen(
                 if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE) {
                     Text(
                         text = "Uses ML Kit on-device translation. No API key needed. Works offline after first download (~30MB).",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+
+            // Output Language
+            var langMenuExpanded by remember { mutableStateOf(false) }
+            SettingsSection(title = "Output Language") {
+                Box {
+                    Text(
+                        text = AppSettings.languageDisplayName(outputLanguage),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable { langMenuExpanded = true }
+                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                    )
+                    DropdownMenu(
+                        expanded = langMenuExpanded,
+                        onDismissRequest = { langMenuExpanded = false },
+                    ) {
+                        AppSettings.OUTPUT_LANGUAGES.forEach { (code, name) ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                onClick = {
+                                    settings.setOutputLanguage(code)
+                                    langMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+                if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE && outputLanguage != AppSettings.LANG_ENGLISH) {
+                    Text(
+                        text = "First use will download the ${AppSettings.languageDisplayName(outputLanguage)} model (~30MB)",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),

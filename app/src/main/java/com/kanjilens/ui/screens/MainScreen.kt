@@ -82,6 +82,7 @@ fun MainScreen(
     val aiModel by settings.aiModel.collectAsState()
     val openaiKey by settings.openaiApiKey.collectAsState()
     val geminiKey by settings.geminiApiKey.collectAsState()
+    val outputLanguage by settings.outputLanguage.collectAsState()
     val apiKey = when (aiModel) {
         AppSettings.MODEL_GEMINI_FLASH -> geminiKey
         AppSettings.MODEL_MLKIT_OFFLINE -> ""
@@ -139,7 +140,10 @@ fun MainScreen(
 
             onTranslateStateChange(CaptureState.Processing)
 
-            when (val result = translator.translateScreen(bitmap, apiKey, translateStyle, aiModel)) {
+            when (val result = translator.translateScreen(
+                bitmap, apiKey, translateStyle, aiModel, outputLanguage,
+                onDownloading = { onTranslateStateChange(CaptureState.DownloadingModel) },
+            )) {
                 is TranslateResult.Success -> {
                     onTranslateStateChange(CaptureState.TranslateSuccess(
                         TranslationResult(translation = result.text)
@@ -311,22 +315,30 @@ fun MainScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    is CaptureState.DownloadingModel -> {
+                        val langName = AppSettings.languageDisplayName(outputLanguage)
+                        Text(
+                            text = "Downloading $langName model...",
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     is CaptureState.Processing -> {
-                        val modelName = when (aiModel) {
-                            AppSettings.MODEL_GEMINI_FLASH -> "Gemini Flash"
-                            AppSettings.MODEL_MLKIT_OFFLINE -> "Offline"
-                            else -> "GPT-4o mini"
-                        }
+                        val langName = AppSettings.languageDisplayName(outputLanguage)
                         val label = if (appMode == AppSettings.MODE_TRANSLATE) {
                             if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE) {
-                                "Translating offline..."
+                                "Translating to $langName..."
                             } else {
+                                val modelName = when (aiModel) {
+                                    AppSettings.MODEL_GEMINI_FLASH -> "Gemini Flash"
+                                    else -> "GPT-4o mini"
+                                }
                                 val styleName = when (translateStyle) {
                                     AppSettings.TRANSLATE_STYLE_TRANSLATE_ONLY -> "translate"
                                     AppSettings.TRANSLATE_STYLE_TRANSLATE_AND_EXPLAIN -> "explain"
                                     else -> "auto"
                                 }
-                                "Translating using $modelName ($styleName)..."
+                                "Translating to $langName using $modelName ($styleName)..."
                             }
                         } else {
                             "Reading text..."
@@ -405,6 +417,7 @@ fun MainScreen(
 
             CaptureButton(
                 isProcessing = captureState is CaptureState.Capturing
+                    || captureState is CaptureState.DownloadingModel
                     || captureState is CaptureState.Processing,
                 onClick = { onCaptureClick() },
                 modifier = Modifier.padding(bottom = 16.dp),

@@ -20,6 +20,7 @@ data class TranslationResult(
 sealed class CaptureState {
     data object Idle : CaptureState()
     data object Capturing : CaptureState()
+    data object DownloadingModel : CaptureState()
     data object Processing : CaptureState()
     data class DictionarySuccess(val result: AnalysisResult) : CaptureState()
     data class TranslateSuccess(val result: TranslationResult) : CaptureState()
