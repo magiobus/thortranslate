@@ -145,7 +145,7 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE) {
+                if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE || aiModel == AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
                     Text(
                         text = "Uses ML Kit on-device translation. No API key needed. Works offline after first download (~30MB).",
                         fontSize = 12.sp,
@@ -188,7 +188,7 @@ fun SettingsScreen(
                         }
                     }
                 }
-                if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE && outputLanguage != AppSettings.LANG_ENGLISH) {
+                if ((aiModel == AppSettings.MODEL_MLKIT_OFFLINE || aiModel == AppSettings.MODEL_MLKIT_OFFLINE_AUTO) && outputLanguage != AppSettings.LANG_ENGLISH) {
                     Text(
                         text = "First use will download the ${AppSettings.languageDisplayName(outputLanguage)} model (~30MB)",
                         fontSize = 12.sp,
@@ -198,7 +198,7 @@ fun SettingsScreen(
                 }
             }
 
-            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE) {
+            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
                 // Translation Style (only for AI models, below AI Model)
@@ -235,7 +235,7 @@ fun SettingsScreen(
                 }
             }
 
-            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE) {
+            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
                 // API Key

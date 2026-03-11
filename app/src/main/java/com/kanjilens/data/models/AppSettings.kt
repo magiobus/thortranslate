@@ -30,6 +30,7 @@ class AppSettings(context: Context) {
         const val MODEL_GPT4O_MINI = 0
         const val MODEL_GEMINI_FLASH = 1
         const val MODEL_MLKIT_OFFLINE = 2
+        const val MODEL_MLKIT_OFFLINE_AUTO = 3
 
         private const val KEY_OUTPUT_LANGUAGE = "output_language"
         private const val KEY_CROP_LEFT = "crop_left"
@@ -126,7 +127,7 @@ class AppSettings(context: Context) {
     val activeApiKey: String
         get() = when (_aiModel.value) {
             MODEL_GEMINI_FLASH -> _geminiApiKey.value
-            MODEL_MLKIT_OFFLINE -> ""
+            MODEL_MLKIT_OFFLINE, MODEL_MLKIT_OFFLINE_AUTO -> ""
             else -> _openaiApiKey.value
         }
 

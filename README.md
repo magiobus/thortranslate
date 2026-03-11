@@ -18,6 +18,7 @@ Android app for translating and understanding foreign-language game screens in r
 | Model | Provider | Cost | Notes |
 |-------|----------|------|-------|
 | **Offline (ML Kit)** | Google | Free | On-device translation, no internet after first download (~30MB per language). Default model. |
+| **Offline Auto** | Google | Free | Same as Offline, but captures automatically every 2s. Only re-translates when text changes. |
 | **Gemini 2.5 Flash** | Google | Free tier available | AI vision model, requires API key |
 | **GPT-4o mini** | OpenAI | Pay per use | AI vision model, requires API key |
 
@@ -72,8 +73,8 @@ echo "sdk.dir=$HOME/Android/sdk" > local.properties
 1. Run your game on the top screen
 2. Open ThorLens on the bottom screen
 3. Switch between **Translate** (any language) and **JP Dictionary** (offline, Japanese only)
-4. Switch models from the top bar dropdown (Offline → Gemini → GPT-4o)
-5. Press the button to capture and translate the top screen
+4. Switch models from the top bar dropdown (Offline → Offline Auto → Gemini → GPT-4o)
+5. Press the button to capture and translate the top screen (or select Offline Auto for continuous translation)
 6. Optionally tap **Full** in the top bar to select a custom capture region
 7. Results persist when switching between modes or going to Settings
 

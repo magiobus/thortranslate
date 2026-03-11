@@ -57,6 +57,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import com.kanjilens.ui.components.CaptureButton
 import com.kanjilens.ui.components.TranslationResultView
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,8 +90,34 @@ fun MainScreen(
     val cropEnabled by settings.cropEnabled.collectAsState()
     val apiKey = when (aiModel) {
         AppSettings.MODEL_GEMINI_FLASH -> geminiKey
-        AppSettings.MODEL_MLKIT_OFFLINE -> ""
+        AppSettings.MODEL_MLKIT_OFFLINE, AppSettings.MODEL_MLKIT_OFFLINE_AUTO -> ""
         else -> openaiKey
+    }
+
+    val isAutoMode = aiModel == AppSettings.MODEL_MLKIT_OFFLINE_AUTO
+    var autoJob by remember { mutableStateOf<Job?>(null) }
+    var lastOcrText by remember { mutableStateOf<String?>(null) }
+
+    fun isSignificantChange(oldText: String, newText: String): Boolean {
+        if (oldText.isEmpty()) return true
+        val diff = kotlin.math.abs(oldText.length - newText.length)
+        if (diff > 3) return true
+        // Character-level comparison: if more than 20% different, it's significant
+        val maxLen = maxOf(oldText.length, newText.length)
+        if (maxLen == 0) return false
+        var matches = 0
+        for (i in 0 until minOf(oldText.length, newText.length)) {
+            if (oldText[i] == newText[i]) matches++
+        }
+        val similarity = matches.toFloat() / maxLen
+        return similarity < 0.8f
+    }
+
+    fun stopAutoMode() {
+        autoJob?.cancel()
+        autoJob = null
+        lastOcrText = null
+        settings.setAiModel(AppSettings.MODEL_MLKIT_OFFLINE)
     }
 
     fun cropBitmap(bitmap: Bitmap): Bitmap {
@@ -179,6 +207,58 @@ fun MainScreen(
         }
     }
 
+    fun doAutoTranslateCycle() {
+        scope.launch {
+            val fullBitmap = captureManager.captureScreen() ?: return@launch
+
+            val bitmap = cropBitmap(fullBitmap)
+
+            // Get OCR text first for dedup
+            val blocks = textRecognizer.recognizeTextBlocks(bitmap)
+            if (blocks.isNullOrEmpty()) return@launch
+
+            val currentText = blocks.joinToString("")
+                .filter { c -> c.code > 0x3000 } // Keep only CJK chars for dedup
+
+            if (currentText.isEmpty()) return@launch
+
+            if (!isSignificantChange(lastOcrText ?: "", currentText)) {
+                return@launch // Text hasn't changed, skip
+            }
+            lastOcrText = currentText
+
+            onTranslateStateChange(CaptureState.Processing)
+
+            when (val result = translator.translateScreen(
+                bitmap, "", AppSettings.TRANSLATE_STYLE_AUTO, AppSettings.MODEL_MLKIT_OFFLINE, outputLanguage,
+                onDownloading = { onTranslateStateChange(CaptureState.DownloadingModel) },
+            )) {
+                is TranslateResult.Success -> {
+                    onTranslateStateChange(CaptureState.TranslateSuccess(
+                        TranslationResult(translation = result.text)
+                    ))
+                }
+                is TranslateResult.Error -> {
+                    onTranslateStateChange(CaptureState.Error(result.message))
+                }
+            }
+        }
+    }
+
+    fun startAutoMode() {
+        if (autoJob?.isActive == true) return
+        lastOcrText = null
+        autoJob = scope.launch {
+            while (true) {
+                if (captureManager.isReady) {
+                    doAutoTranslateCycle()
+                }
+                delay(2000L)
+            }
+        }
+    }
+
+    var pendingAutoAfterPermission by remember { mutableStateOf(false) }
     var pendingCropAfterPermission by remember { mutableStateOf(false) }
 
     val projectionLauncher = rememberLauncherForActivityResult(
@@ -201,6 +281,11 @@ fun MainScreen(
                         if (bmp != null) onCropClick(bmp)
                     }
                 }
+            } else if (pendingAutoAfterPermission) {
+                pendingAutoAfterPermission = false
+                captureManager.awaitProjectionReady {
+                    startAutoMode()
+                }
             } else {
                 onCaptureStateChange(CaptureState.Capturing)
                 captureManager.awaitProjectionReady {
@@ -209,6 +294,7 @@ fun MainScreen(
             }
         } else {
             pendingCropAfterPermission = false
+            pendingAutoAfterPermission = false
             onCaptureStateChange(CaptureState.Error("Permission denied"))
         }
     }
@@ -240,6 +326,7 @@ fun MainScreen(
     val modelLabel = when (aiModel) {
         AppSettings.MODEL_GEMINI_FLASH -> "Gemini"
         AppSettings.MODEL_MLKIT_OFFLINE -> "Offline"
+        AppSettings.MODEL_MLKIT_OFFLINE_AUTO -> "Auto"
         else -> "GPT-4o"
     }
 
@@ -300,15 +387,31 @@ fun MainScreen(
                             onDismissRequest = { modelMenuExpanded = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Offline (ML Kit)") },
+                                text = { Text("Offline") },
                                 onClick = {
+                                    stopAutoMode()
                                     settings.setAiModel(AppSettings.MODEL_MLKIT_OFFLINE)
                                     modelMenuExpanded = false
                                 },
                             )
                             DropdownMenuItem(
+                                text = { Text("Offline Auto") },
+                                onClick = {
+                                    settings.setAiModel(AppSettings.MODEL_MLKIT_OFFLINE_AUTO)
+                                    modelMenuExpanded = false
+                                    if (captureManager.isReady) {
+                                        startAutoMode()
+                                    } else {
+                                        pendingAutoAfterPermission = true
+                                        val intent = captureManager.projectionManager.createScreenCaptureIntent()
+                                        projectionLauncher.launch(intent)
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Gemini Flash") },
                                 onClick = {
+                                    stopAutoMode()
                                     settings.setAiModel(AppSettings.MODEL_GEMINI_FLASH)
                                     modelMenuExpanded = false
                                 },
@@ -316,6 +419,7 @@ fun MainScreen(
                             DropdownMenuItem(
                                 text = { Text("GPT-4o mini") },
                                 onClick = {
+                                    stopAutoMode()
                                     settings.setAiModel(AppSettings.MODEL_GPT4O_MINI)
                                     modelMenuExpanded = false
                                 },
@@ -398,7 +502,7 @@ fun MainScreen(
                     is CaptureState.Processing -> {
                         val langName = AppSettings.languageDisplayName(outputLanguage)
                         val label = if (appMode == AppSettings.MODE_TRANSLATE) {
-                            if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE) {
+                            if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE || aiModel == AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
                                 "Translating to $langName..."
                             } else {
                                 val modelName = when (aiModel) {
@@ -433,7 +537,7 @@ fun MainScreen(
                             AppSettings.TEXT_SIZE_LARGE -> 20.sp
                             else -> 16.sp
                         }
-                        if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE) {
+                        if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE || aiModel == AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
                             // Offline: show blocks with JP original + EN translation
                             Column {
                                 val lines = state.result.translation.split("\n")
@@ -493,6 +597,8 @@ fun MainScreen(
                     || captureState is CaptureState.Processing,
                 onClick = { onCaptureClick() },
                 modifier = Modifier.padding(bottom = 16.dp),
+                isAutoMode = isAutoMode,
+                onStopAuto = { stopAutoMode() },
             )
         }
     }

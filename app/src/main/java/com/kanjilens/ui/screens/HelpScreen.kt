@@ -89,7 +89,8 @@ fun HelpScreen(
             HelpDivider()
 
             HelpSection("AI Models")
-            HelpBullet("Offline (ML Kit)", "On-device translation. No API key, no internet after first download (~30MB). Fast but basic quality.")
+            HelpBullet("Offline", "On-device translation. No API key, no internet after first download (~30MB). Fast but basic quality.")
+            HelpBullet("Offline Auto", "Same as Offline, but captures and translates automatically every 2 seconds. Only re-translates when the text on screen changes. Press Stop to go back to manual mode.")
             HelpBullet("Gemini 2.5 Flash", "By Google. Free tier available — great to get started.")
             HelpBullet("GPT-4o mini", "By OpenAI. Reliable and fast.")
             Spacer(modifier = Modifier.height(4.dp))
