@@ -2,6 +2,7 @@ package com.kanjilens.ui.screens
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -73,6 +74,7 @@ fun MainScreen(
     onTranslateStateChange: (CaptureState) -> Unit,
     onSettingsClick: () -> Unit,
     onHelpClick: () -> Unit,
+    onCropClick: (Bitmap) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -83,10 +85,21 @@ fun MainScreen(
     val openaiKey by settings.openaiApiKey.collectAsState()
     val geminiKey by settings.geminiApiKey.collectAsState()
     val outputLanguage by settings.outputLanguage.collectAsState()
+    val cropEnabled by settings.cropEnabled.collectAsState()
     val apiKey = when (aiModel) {
         AppSettings.MODEL_GEMINI_FLASH -> geminiKey
         AppSettings.MODEL_MLKIT_OFFLINE -> ""
         else -> openaiKey
+    }
+
+    fun cropBitmap(bitmap: Bitmap): Bitmap {
+        if (!cropEnabled) return bitmap
+        val region = settings.cropRegion
+        val x = (region.left * bitmap.width).toInt().coerceIn(0, bitmap.width)
+        val y = (region.top * bitmap.height).toInt().coerceIn(0, bitmap.height)
+        val w = ((region.right - region.left) * bitmap.width).toInt().coerceIn(1, bitmap.width - x)
+        val h = ((region.bottom - region.top) * bitmap.height).toInt().coerceIn(1, bitmap.height - y)
+        return Bitmap.createBitmap(bitmap, x, y, w, h)
     }
 
     val captureState = if (appMode == AppSettings.MODE_TRANSLATE) translateState else dictionaryState
@@ -99,12 +112,13 @@ fun MainScreen(
     fun doDictionaryCapture() {
         scope.launch {
             onDictionaryStateChange(CaptureState.Capturing)
-            val bitmap = captureManager.captureScreen()
-            if (bitmap == null) {
+            val fullBitmap = captureManager.captureScreen()
+            if (fullBitmap == null) {
                 onDictionaryStateChange(CaptureState.Error("Failed to capture screen"))
                 return@launch
             }
 
+            val bitmap = cropBitmap(fullBitmap)
             onDictionaryStateChange(CaptureState.Processing)
 
             val recognizedText = textRecognizer.recognizeText(bitmap)
@@ -132,12 +146,13 @@ fun MainScreen(
             }
 
             onTranslateStateChange(CaptureState.Capturing)
-            val bitmap = captureManager.captureScreen()
-            if (bitmap == null) {
+            val fullBitmap = captureManager.captureScreen()
+            if (fullBitmap == null) {
                 onTranslateStateChange(CaptureState.Error("Failed to capture screen"))
                 return@launch
             }
 
+            val bitmap = cropBitmap(fullBitmap)
             onTranslateStateChange(CaptureState.Processing)
 
             when (val result = translator.translateScreen(
@@ -164,6 +179,8 @@ fun MainScreen(
         }
     }
 
+    var pendingCropAfterPermission by remember { mutableStateOf(false) }
+
     val projectionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -176,11 +193,22 @@ fun MainScreen(
             }
             ContextCompat.startForegroundService(context, serviceIntent)
 
-            onCaptureStateChange(CaptureState.Capturing)
-            captureManager.awaitProjectionReady {
-                doCapture()
+            if (pendingCropAfterPermission) {
+                pendingCropAfterPermission = false
+                captureManager.awaitProjectionReady {
+                    scope.launch {
+                        val bmp = captureManager.captureScreen()
+                        if (bmp != null) onCropClick(bmp)
+                    }
+                }
+            } else {
+                onCaptureStateChange(CaptureState.Capturing)
+                captureManager.awaitProjectionReady {
+                    doCapture()
+                }
             }
         } else {
+            pendingCropAfterPermission = false
             onCaptureStateChange(CaptureState.Error("Permission denied"))
         }
     }
@@ -189,6 +217,20 @@ fun MainScreen(
         if (captureManager.isReady) {
             doCapture()
         } else {
+            pendingCropAfterPermission = false
+            val intent = captureManager.projectionManager.createScreenCaptureIntent()
+            projectionLauncher.launch(intent)
+        }
+    }
+
+    fun onCropRegionClick() {
+        if (captureManager.isReady) {
+            scope.launch {
+                val bmp = captureManager.captureScreen()
+                if (bmp != null) onCropClick(bmp)
+            }
+        } else {
+            pendingCropAfterPermission = true
             val intent = captureManager.projectionManager.createScreenCaptureIntent()
             projectionLauncher.launch(intent)
         }
@@ -211,6 +253,36 @@ fun MainScreen(
                     )
                 },
                 actions = {
+                    // Region chip
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (cropEnabled) "Region" else "Full",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (cropEnabled) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onCropRegionClick() }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                        )
+                        if (cropEnabled) {
+                            Text(
+                                text = "\u2715",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier
+                                    .clickable { settings.clearCropRegion() }
+                                    .padding(start = 2.dp, end = 4.dp),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+                    // Model chip
                     Box {
                         Text(
                             text = modelLabel,

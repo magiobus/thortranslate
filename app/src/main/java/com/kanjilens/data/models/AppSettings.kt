@@ -32,6 +32,11 @@ class AppSettings(context: Context) {
         const val MODEL_MLKIT_OFFLINE = 2
 
         private const val KEY_OUTPUT_LANGUAGE = "output_language"
+        private const val KEY_CROP_LEFT = "crop_left"
+        private const val KEY_CROP_TOP = "crop_top"
+        private const val KEY_CROP_RIGHT = "crop_right"
+        private const val KEY_CROP_BOTTOM = "crop_bottom"
+        private const val KEY_CROP_ENABLED = "crop_enabled"
 
         const val LANG_ENGLISH = "en"
         const val LANG_SPANISH = "es"
@@ -82,6 +87,40 @@ class AppSettings(context: Context) {
 
     private val _outputLanguage = MutableStateFlow(prefs.getString(KEY_OUTPUT_LANGUAGE, LANG_ENGLISH) ?: LANG_ENGLISH)
     val outputLanguage: StateFlow<String> = _outputLanguage
+
+    // Crop region stored as percentages (0f..1f)
+    private val _cropEnabled = MutableStateFlow(prefs.getBoolean(KEY_CROP_ENABLED, false))
+    val cropEnabled: StateFlow<Boolean> = _cropEnabled
+
+    private val _cropLeft = MutableStateFlow(prefs.getFloat(KEY_CROP_LEFT, 0f))
+    private val _cropTop = MutableStateFlow(prefs.getFloat(KEY_CROP_TOP, 0f))
+    private val _cropRight = MutableStateFlow(prefs.getFloat(KEY_CROP_RIGHT, 1f))
+    private val _cropBottom = MutableStateFlow(prefs.getFloat(KEY_CROP_BOTTOM, 1f))
+
+    data class CropRegion(val left: Float, val top: Float, val right: Float, val bottom: Float)
+
+    val cropRegion: CropRegion
+        get() = CropRegion(_cropLeft.value, _cropTop.value, _cropRight.value, _cropBottom.value)
+
+    fun setCropRegion(left: Float, top: Float, right: Float, bottom: Float) {
+        _cropEnabled.value = true
+        _cropLeft.value = left
+        _cropTop.value = top
+        _cropRight.value = right
+        _cropBottom.value = bottom
+        prefs.edit()
+            .putBoolean(KEY_CROP_ENABLED, true)
+            .putFloat(KEY_CROP_LEFT, left)
+            .putFloat(KEY_CROP_TOP, top)
+            .putFloat(KEY_CROP_RIGHT, right)
+            .putFloat(KEY_CROP_BOTTOM, bottom)
+            .apply()
+    }
+
+    fun clearCropRegion() {
+        _cropEnabled.value = false
+        prefs.edit().putBoolean(KEY_CROP_ENABLED, false).apply()
+    }
 
     /** Returns the API key for the currently selected model (empty for offline) */
     val activeApiKey: String
