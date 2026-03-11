@@ -72,12 +72,10 @@ fun HelpScreen(
                 "Captures a screenshot and sends it to an AI model that translates " +
                 "and explains what's on screen. Works with any language — Japanese, Chinese, Korean, and more."
             )
-            HelpBody("Three translation styles:")
+            HelpBody("Three translation styles (AI models only):")
             HelpBullet("Auto", "Translates and explains what to do next (recommended)")
             HelpBullet("Translate", "Just translates the text, no extra explanation")
             HelpBullet("Explain", "Full translation with detailed guidance on how to progress")
-            Spacer(modifier = Modifier.height(4.dp))
-            HelpBody("Requires an internet connection and an API key.")
 
             HelpDivider()
 
@@ -91,10 +89,30 @@ fun HelpScreen(
             HelpDivider()
 
             HelpSection("AI Models")
+            HelpBullet("Offline (ML Kit)", "On-device translation. No API key, no internet after first download (~30MB). Fast but basic quality.")
             HelpBullet("Gemini 2.5 Flash", "By Google. Free tier available — great to get started.")
             HelpBullet("GPT-4o mini", "By OpenAI. Reliable and fast.")
             Spacer(modifier = Modifier.height(4.dp))
-            HelpBody("You can switch models in Settings. Each model stores its own API key.")
+            HelpBody("Switch models from the top bar or in Settings. Offline is the default.")
+
+            HelpDivider()
+
+            HelpSection("Output Language")
+            HelpBody(
+                "Choose which language to translate into. Available in Settings. " +
+                "Supports English, Spanish, Portuguese, French, German, Italian, Chinese, Korean, and Russian."
+            )
+            HelpBody("For Offline mode, each language downloads a ~30MB model on first use.")
+
+            HelpDivider()
+
+            HelpSection("Custom Region")
+            HelpBody(
+                "By default, the entire screen is captured. Tap \"Full\" in the top bar to select " +
+                "a specific area (e.g. the dialogue box). Drag on the screenshot to draw the region, " +
+                "then tap \"Save Region\"."
+            )
+            HelpBody("Tap the \u2715 next to \"Region\" to go back to full screen capture.")
 
             HelpDivider()
 
