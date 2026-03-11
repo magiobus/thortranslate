@@ -253,7 +253,7 @@ fun MainScreen(
                 if (captureManager.isReady) {
                     doAutoTranslateCycle()
                 }
-                delay(2000L)
+                delay(1000L)
             }
         }
     }

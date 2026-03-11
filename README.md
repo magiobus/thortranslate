@@ -18,7 +18,7 @@ Android app for translating and understanding foreign-language game screens in r
 | Model | Provider | Cost | Notes |
 |-------|----------|------|-------|
 | **Offline (ML Kit)** | Google | Free | On-device translation, no internet after first download (~30MB per language). Default model. |
-| **Offline Auto** | Google | Free | Same as Offline, but captures automatically every 2s. Only re-translates when text changes. |
+| **Offline Auto** | Google | Free | Same as Offline, but captures automatically every 1s. Only re-translates when text changes. |
 | **Gemini 2.5 Flash** | Google | Free tier available | AI vision model, requires API key |
 | **GPT-4o mini** | OpenAI | Pay per use | AI vision model, requires API key |
 
