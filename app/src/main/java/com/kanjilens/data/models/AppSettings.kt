@@ -29,6 +29,39 @@ class AppSettings(context: Context) {
 
         const val MODEL_GPT4O_MINI = 0
         const val MODEL_GEMINI_FLASH = 1
+        const val MODEL_MLKIT_OFFLINE = 2
+
+        private const val KEY_OUTPUT_LANGUAGE = "output_language"
+        private const val KEY_CROP_LEFT = "crop_left"
+        private const val KEY_CROP_TOP = "crop_top"
+        private const val KEY_CROP_RIGHT = "crop_right"
+        private const val KEY_CROP_BOTTOM = "crop_bottom"
+        private const val KEY_CROP_ENABLED = "crop_enabled"
+
+        const val LANG_ENGLISH = "en"
+        const val LANG_SPANISH = "es"
+        const val LANG_PORTUGUESE = "pt"
+        const val LANG_FRENCH = "fr"
+        const val LANG_GERMAN = "de"
+        const val LANG_ITALIAN = "it"
+        const val LANG_CHINESE = "zh"
+        const val LANG_KOREAN = "ko"
+        const val LANG_RUSSIAN = "ru"
+
+        val OUTPUT_LANGUAGES = listOf(
+            LANG_ENGLISH to "English",
+            LANG_SPANISH to "Spanish",
+            LANG_PORTUGUESE to "Portuguese",
+            LANG_FRENCH to "French",
+            LANG_GERMAN to "German",
+            LANG_ITALIAN to "Italian",
+            LANG_CHINESE to "Chinese",
+            LANG_KOREAN to "Korean",
+            LANG_RUSSIAN to "Russian",
+        )
+
+        fun languageDisplayName(code: String): String =
+            OUTPUT_LANGUAGES.firstOrNull { it.first == code }?.second ?: "English"
     }
 
     private val prefs: SharedPreferences =
@@ -49,12 +82,53 @@ class AppSettings(context: Context) {
     private val _translateStyle = MutableStateFlow(prefs.getInt(KEY_TRANSLATE_STYLE, TRANSLATE_STYLE_AUTO))
     val translateStyle: StateFlow<Int> = _translateStyle
 
-    private val _aiModel = MutableStateFlow(prefs.getInt(KEY_AI_MODEL, MODEL_GEMINI_FLASH))
+    private val _aiModel = MutableStateFlow(prefs.getInt(KEY_AI_MODEL, MODEL_MLKIT_OFFLINE))
     val aiModel: StateFlow<Int> = _aiModel
 
-    /** Returns the API key for the currently selected model */
+    private val _outputLanguage = MutableStateFlow(prefs.getString(KEY_OUTPUT_LANGUAGE, LANG_ENGLISH) ?: LANG_ENGLISH)
+    val outputLanguage: StateFlow<String> = _outputLanguage
+
+    // Crop region stored as percentages (0f..1f)
+    private val _cropEnabled = MutableStateFlow(prefs.getBoolean(KEY_CROP_ENABLED, false))
+    val cropEnabled: StateFlow<Boolean> = _cropEnabled
+
+    private val _cropLeft = MutableStateFlow(prefs.getFloat(KEY_CROP_LEFT, 0f))
+    private val _cropTop = MutableStateFlow(prefs.getFloat(KEY_CROP_TOP, 0f))
+    private val _cropRight = MutableStateFlow(prefs.getFloat(KEY_CROP_RIGHT, 1f))
+    private val _cropBottom = MutableStateFlow(prefs.getFloat(KEY_CROP_BOTTOM, 1f))
+
+    data class CropRegion(val left: Float, val top: Float, val right: Float, val bottom: Float)
+
+    val cropRegion: CropRegion
+        get() = CropRegion(_cropLeft.value, _cropTop.value, _cropRight.value, _cropBottom.value)
+
+    fun setCropRegion(left: Float, top: Float, right: Float, bottom: Float) {
+        _cropEnabled.value = true
+        _cropLeft.value = left
+        _cropTop.value = top
+        _cropRight.value = right
+        _cropBottom.value = bottom
+        prefs.edit()
+            .putBoolean(KEY_CROP_ENABLED, true)
+            .putFloat(KEY_CROP_LEFT, left)
+            .putFloat(KEY_CROP_TOP, top)
+            .putFloat(KEY_CROP_RIGHT, right)
+            .putFloat(KEY_CROP_BOTTOM, bottom)
+            .apply()
+    }
+
+    fun clearCropRegion() {
+        _cropEnabled.value = false
+        prefs.edit().putBoolean(KEY_CROP_ENABLED, false).apply()
+    }
+
+    /** Returns the API key for the currently selected model (empty for offline) */
     val activeApiKey: String
-        get() = if (_aiModel.value == MODEL_GEMINI_FLASH) _geminiApiKey.value else _openaiApiKey.value
+        get() = when (_aiModel.value) {
+            MODEL_GEMINI_FLASH -> _geminiApiKey.value
+            MODEL_MLKIT_OFFLINE -> ""
+            else -> _openaiApiKey.value
+        }
 
     fun setTextSize(size: Int) {
         _textSize.value = size
@@ -84,5 +158,10 @@ class AppSettings(context: Context) {
     fun setAiModel(model: Int) {
         _aiModel.value = model
         prefs.edit().putInt(KEY_AI_MODEL, model).apply()
+    }
+
+    fun setOutputLanguage(lang: String) {
+        _outputLanguage.value = lang
+        prefs.edit().putString(KEY_OUTPUT_LANGUAGE, lang).apply()
     }
 }

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -49,6 +51,7 @@ fun SettingsScreen(
     val geminiApiKey by settings.geminiApiKey.collectAsState()
     val translateStyle by settings.translateStyle.collectAsState()
     val aiModel by settings.aiModel.collectAsState()
+    val outputLanguage by settings.outputLanguage.collectAsState()
 
     var openaiKeyInput by remember { mutableStateOf(openaiApiKey) }
     var geminiKeyInput by remember { mutableStateOf(geminiApiKey) }
@@ -117,123 +120,184 @@ fun SettingsScreen(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
-            // Translation Style
-            SettingsSection(title = "Translation Style") {
-                Text(
-                    text = "Controls how Translate mode responds",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SettingsOption(
-                        label = "Auto",
-                        selected = translateStyle == AppSettings.TRANSLATE_STYLE_AUTO,
-                        onClick = { settings.setTranslateStyle(AppSettings.TRANSLATE_STYLE_AUTO) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SettingsOption(
-                        label = "Translate",
-                        selected = translateStyle == AppSettings.TRANSLATE_STYLE_TRANSLATE_ONLY,
-                        onClick = { settings.setTranslateStyle(AppSettings.TRANSLATE_STYLE_TRANSLATE_ONLY) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SettingsOption(
-                        label = "Explain",
-                        selected = translateStyle == AppSettings.TRANSLATE_STYLE_TRANSLATE_AND_EXPLAIN,
-                        onClick = { settings.setTranslateStyle(AppSettings.TRANSLATE_STYLE_TRANSLATE_AND_EXPLAIN) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-
-            // AI Model
+            // AI Model (first)
             SettingsSection(title = "AI Model") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     SettingsOption(
-                        label = "Gemini Flash",
+                        label = "Offline",
+                        selected = aiModel == AppSettings.MODEL_MLKIT_OFFLINE,
+                        onClick = { settings.setAiModel(AppSettings.MODEL_MLKIT_OFFLINE) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    SettingsOption(
+                        label = "Gemini",
                         selected = aiModel == AppSettings.MODEL_GEMINI_FLASH,
                         onClick = { settings.setAiModel(AppSettings.MODEL_GEMINI_FLASH) },
                         modifier = Modifier.weight(1f),
                     )
                     SettingsOption(
-                        label = "GPT-4o mini",
+                        label = "GPT-4o",
                         selected = aiModel == AppSettings.MODEL_GPT4O_MINI,
                         onClick = { settings.setAiModel(AppSettings.MODEL_GPT4O_MINI) },
                         modifier = Modifier.weight(1f),
+                    )
+                }
+                if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE) {
+                    Text(
+                        text = "Uses ML Kit on-device translation. No API key needed. Works offline after first download (~30MB).",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
-            // API Key
-            val keyLabel = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
-                "Google AI API Key"
-            } else {
-                "OpenAI API Key"
-            }
-            val keyHint = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
-                "Get your key at aistudio.google.com"
-            } else {
-                "Get your key at platform.openai.com"
-            }
-            val keyPlaceholder = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
-                "AIza..."
-            } else {
-                "sk-..."
+            // Output Language
+            var langMenuExpanded by remember { mutableStateOf(false) }
+            SettingsSection(title = "Output Language") {
+                Box {
+                    Text(
+                        text = AppSettings.languageDisplayName(outputLanguage),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable { langMenuExpanded = true }
+                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                    )
+                    DropdownMenu(
+                        expanded = langMenuExpanded,
+                        onDismissRequest = { langMenuExpanded = false },
+                    ) {
+                        AppSettings.OUTPUT_LANGUAGES.forEach { (code, name) ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                onClick = {
+                                    settings.setOutputLanguage(code)
+                                    langMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+                if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE && outputLanguage != AppSettings.LANG_ENGLISH) {
+                    Text(
+                        text = "First use will download the ${AppSettings.languageDisplayName(outputLanguage)} model (~30MB)",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
 
-            SettingsSection(title = keyLabel) {
-                Text(
-                    text = keyHint,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-                OutlinedTextField(
-                    value = apiKeyInput,
-                    onValueChange = {
-                        if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
-                            geminiKeyInput = it
-                            settings.setGeminiApiKey(it)
-                        } else {
-                            openaiKeyInput = it
-                            settings.setOpenaiApiKey(it)
-                        }
-                    },
-                    placeholder = { Text(keyPlaceholder) },
-                    singleLine = true,
-                    visualTransformation = if (showApiKey) {
-                        VisualTransformation.None
-                    } else {
-                        PasswordVisualTransformation()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                )
-                if (apiKeyInput.isNotEmpty()) {
+            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+
+                // Translation Style (only for AI models, below AI Model)
+                SettingsSection(title = "Translation Style") {
                     Text(
-                        text = if (showApiKey) "Hide key" else "Show key",
+                        text = "Controls how Translate mode responds",
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .clickable { showApiKey = !showApiKey }
-                            .padding(top = 4.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp),
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SettingsOption(
+                            label = "Auto",
+                            selected = translateStyle == AppSettings.TRANSLATE_STYLE_AUTO,
+                            onClick = { settings.setTranslateStyle(AppSettings.TRANSLATE_STYLE_AUTO) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SettingsOption(
+                            label = "Translate",
+                            selected = translateStyle == AppSettings.TRANSLATE_STYLE_TRANSLATE_ONLY,
+                            onClick = { settings.setTranslateStyle(AppSettings.TRANSLATE_STYLE_TRANSLATE_ONLY) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SettingsOption(
+                            label = "Explain",
+                            selected = translateStyle == AppSettings.TRANSLATE_STYLE_TRANSLATE_AND_EXPLAIN,
+                            onClick = { settings.setTranslateStyle(AppSettings.TRANSLATE_STYLE_TRANSLATE_AND_EXPLAIN) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+
+            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+
+                // API Key
+                val keyLabel = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
+                    "Google AI API Key"
+                } else {
+                    "OpenAI API Key"
+                }
+                val keyHint = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
+                    "Get your key at aistudio.google.com"
+                } else {
+                    "Get your key at platform.openai.com"
+                }
+                val keyPlaceholder = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
+                    "AIza..."
+                } else {
+                    "sk-..."
+                }
+
+                SettingsSection(title = keyLabel) {
+                    Text(
+                        text = keyHint,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = {
+                            if (aiModel == AppSettings.MODEL_GEMINI_FLASH) {
+                                geminiKeyInput = it
+                                settings.setGeminiApiKey(it)
+                            } else {
+                                openaiKeyInput = it
+                                settings.setOpenaiApiKey(it)
+                            }
+                        },
+                        placeholder = { Text(keyPlaceholder) },
+                        singleLine = true,
+                        visualTransformation = if (showApiKey) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                    if (apiKeyInput.isNotEmpty()) {
+                        Text(
+                            text = if (showApiKey) "Hide key" else "Show key",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clickable { showApiKey = !showApiKey }
+                                .padding(top = 4.dp),
+                        )
+                    }
                 }
             }
         }

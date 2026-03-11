@@ -41,6 +41,25 @@ class TextRecognizer {
             }
     }
 
+    suspend fun recognizeTextBlocks(bitmap: Bitmap): List<String>? = suspendCancellableCoroutine { continuation ->
+        val image = InputImage.fromBitmap(bitmap, 0)
+
+        recognizer.process(image)
+            .addOnSuccessListener { result ->
+                val blocks = result.textBlocks
+                    .map { it.text.trim() }
+                    .filter { it.isNotEmpty() }
+                if (blocks.isNotEmpty()) {
+                    continuation.resume(blocks)
+                } else {
+                    continuation.resume(null)
+                }
+            }
+            .addOnFailureListener {
+                continuation.resume(null)
+            }
+    }
+
     fun close() {
         recognizer.close()
     }
