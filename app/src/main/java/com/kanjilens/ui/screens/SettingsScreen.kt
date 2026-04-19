@@ -29,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,11 +40,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kanjilens.data.models.AppSettings
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
+    screenTranslator: com.kanjilens.translate.ScreenTranslator,
     onBack: () -> Unit,
 ) {
     val textSize by settings.textSize.collectAsState()
@@ -51,11 +54,36 @@ fun SettingsScreen(
     val geminiApiKey by settings.geminiApiKey.collectAsState()
     val translateStyle by settings.translateStyle.collectAsState()
     val aiModel by settings.aiModel.collectAsState()
+    val ollamaUrl by settings.ollamaUrl.collectAsState()
+    val ollamaModel by settings.ollamaModel.collectAsState()
+    val ollamaVision by settings.ollamaVision.collectAsState()
+    val customUrl by settings.customUrl.collectAsState()
+    val customApiKey by settings.customApiKey.collectAsState()
+    val customModel by settings.customModel.collectAsState()
+    val customVision by settings.customVision.collectAsState()
     val outputLanguage by settings.outputLanguage.collectAsState()
 
     var openaiKeyInput by remember { mutableStateOf(openaiApiKey) }
     var geminiKeyInput by remember { mutableStateOf(geminiApiKey) }
     var showApiKey by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+
+    var ollamaUrlInput by remember { mutableStateOf(ollamaUrl) }
+    var ollamaModelList by remember { mutableStateOf<List<String>>(emptyList()) }
+    var ollamaModelLoading by remember { mutableStateOf(false) }
+    var ollamaModelError by remember { mutableStateOf(false) }
+    var ollamaModelInput by remember { mutableStateOf(ollamaModel) }
+    var ollamaModelMenuExpanded by remember { mutableStateOf(false) }
+
+    var customUrlInput by remember { mutableStateOf(customUrl) }
+    var customApiKeyInput by remember { mutableStateOf(customApiKey) }
+    var customModelList by remember { mutableStateOf<List<String>>(emptyList()) }
+    var customModelLoading by remember { mutableStateOf(false) }
+    var customModelError by remember { mutableStateOf(false) }
+    var customModelInput by remember { mutableStateOf(customModel) }
+    var customModelMenuExpanded by remember { mutableStateOf(false) }
+    var showCustomApiKey by remember { mutableStateOf(false) }
 
     val apiKeyInput = if (aiModel == AppSettings.MODEL_GEMINI_FLASH) geminiKeyInput else openaiKeyInput
 
@@ -122,28 +150,47 @@ fun SettingsScreen(
 
             // AI Model (first)
             SettingsSection(title = "AI Model") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SettingsOption(
-                        label = "Offline",
-                        selected = aiModel == AppSettings.MODEL_MLKIT_OFFLINE,
-                        onClick = { settings.setAiModel(AppSettings.MODEL_MLKIT_OFFLINE) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SettingsOption(
-                        label = "Gemini",
-                        selected = aiModel == AppSettings.MODEL_GEMINI_FLASH,
-                        onClick = { settings.setAiModel(AppSettings.MODEL_GEMINI_FLASH) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    SettingsOption(
-                        label = "GPT-4o",
-                        selected = aiModel == AppSettings.MODEL_GPT4O_MINI,
-                        onClick = { settings.setAiModel(AppSettings.MODEL_GPT4O_MINI) },
-                        modifier = Modifier.weight(1f),
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SettingsOption(
+                            label = "Offline",
+                            selected = aiModel == AppSettings.MODEL_MLKIT_OFFLINE,
+                            onClick = { settings.setAiModel(AppSettings.MODEL_MLKIT_OFFLINE) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SettingsOption(
+                            label = "Gemini",
+                            selected = aiModel == AppSettings.MODEL_GEMINI_FLASH,
+                            onClick = { settings.setAiModel(AppSettings.MODEL_GEMINI_FLASH) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SettingsOption(
+                            label = "GPT-4o",
+                            selected = aiModel == AppSettings.MODEL_GPT4O_MINI,
+                            onClick = { settings.setAiModel(AppSettings.MODEL_GPT4O_MINI) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SettingsOption(
+                            label = "Ollama",
+                            selected = aiModel == AppSettings.MODEL_OLLAMA,
+                            onClick = { settings.setAiModel(AppSettings.MODEL_OLLAMA) },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SettingsOption(
+                            label = "Custom",
+                            selected = aiModel == AppSettings.MODEL_CUSTOM,
+                            onClick = { settings.setAiModel(AppSettings.MODEL_CUSTOM) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
                 if (aiModel == AppSettings.MODEL_MLKIT_OFFLINE || aiModel == AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
                     Text(
@@ -152,6 +199,236 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),
                     )
+                }
+                if (aiModel == AppSettings.MODEL_OLLAMA) {
+                    OutlinedTextField(
+                        value = ollamaUrlInput,
+                        onValueChange = { ollamaUrlInput = it; settings.setOllamaUrl(it) },
+                        label = { Text("Ollama 地址") },
+                        placeholder = { Text("http://192.168.1.x:11434") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                    Box {
+                        val displayModel = if (ollamaModel.isEmpty()) "选择模型..." else ollamaModel
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable {
+                                    if (!ollamaModelLoading) {
+                                        ollamaModelLoading = true
+                                        ollamaModelError = false
+                                        scope.launch {
+                                            val list = screenTranslator.fetchOllamaModels(ollamaUrlInput)
+                                            ollamaModelLoading = false
+                                            if (list.isEmpty()) {
+                                                ollamaModelError = true
+                                            } else {
+                                                ollamaModelList = list
+                                                ollamaModelMenuExpanded = true
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = if (ollamaModelLoading) "加载中..." else displayModel,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text("▼", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        DropdownMenu(
+                            expanded = ollamaModelMenuExpanded,
+                            onDismissRequest = { ollamaModelMenuExpanded = false },
+                        ) {
+                            ollamaModelList.forEach { name ->
+                                DropdownMenuItem(
+                                    text = { Text(name) },
+                                    onClick = {
+                                        settings.setOllamaModel(name)
+                                        ollamaModelInput = name
+                                        ollamaModelMenuExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    if (ollamaModelError) {
+                        OutlinedTextField(
+                            value = ollamaModelInput,
+                            onValueChange = { ollamaModelInput = it; settings.setOllamaModel(it) },
+                            label = { Text("手动输入模型名") },
+                            placeholder = { Text("llava") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            ),
+                        )
+                        Text(
+                            text = "无法连接到 Ollama，请手动输入模型名",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text("视觉模式", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                text = if (ollamaVision) "直接发送截图（需要视觉模型）" else "OCR 提取文字后翻译",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = ollamaVision,
+                            onCheckedChange = { settings.setOllamaVision(it) },
+                        )
+                    }
+                }
+                if (aiModel == AppSettings.MODEL_CUSTOM) {
+                    OutlinedTextField(
+                        value = customUrlInput,
+                        onValueChange = { customUrlInput = it; settings.setCustomUrl(it) },
+                        label = { Text("Base URL") },
+                        placeholder = { Text("https://api.example.com") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                    OutlinedTextField(
+                        value = customApiKeyInput,
+                        onValueChange = { customApiKeyInput = it; settings.setCustomApiKey(it) },
+                        label = { Text("API Key（可选）") },
+                        singleLine = true,
+                        visualTransformation = if (showCustomApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                    if (customApiKeyInput.isNotEmpty()) {
+                        Text(
+                            text = if (showCustomApiKey) "隐藏" else "显示",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { showCustomApiKey = !showCustomApiKey }.padding(top = 2.dp),
+                        )
+                    }
+                    Box {
+                        val displayModel = if (customModel.isEmpty()) "选择模型..." else customModel
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable {
+                                    if (!customModelLoading) {
+                                        customModelLoading = true
+                                        customModelError = false
+                                        scope.launch {
+                                            val list = screenTranslator.fetchOpenAIModels(customUrlInput, customApiKeyInput)
+                                            customModelLoading = false
+                                            if (list.isEmpty()) {
+                                                customModelError = true
+                                            } else {
+                                                customModelList = list
+                                                customModelMenuExpanded = true
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = if (customModelLoading) "加载中..." else displayModel,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text("▼", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        DropdownMenu(
+                            expanded = customModelMenuExpanded,
+                            onDismissRequest = { customModelMenuExpanded = false },
+                        ) {
+                            customModelList.forEach { name ->
+                                DropdownMenuItem(
+                                    text = { Text(name) },
+                                    onClick = {
+                                        settings.setCustomModel(name)
+                                        customModelInput = name
+                                        customModelMenuExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    if (customModelError) {
+                        OutlinedTextField(
+                            value = customModelInput,
+                            onValueChange = { customModelInput = it; settings.setCustomModel(it) },
+                            label = { Text("手动输入模型名") },
+                            placeholder = { Text("deepseek-chat") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            ),
+                        )
+                        Text(
+                            text = "无法获取模型列表，请手动输入模型名",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text("视觉模式", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                text = if (customVision) "直接发送截图（需要视觉模型）" else "OCR 提取文字后翻译",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = customVision,
+                            onCheckedChange = { settings.setCustomVision(it) },
+                        )
+                    }
                 }
             }
 
