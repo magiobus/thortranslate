@@ -69,19 +69,19 @@ fun SettingsScreen(
 
     val scope = rememberCoroutineScope()
 
-    var ollamaUrlInput by remember { mutableStateOf(ollamaUrl) }
+    var ollamaUrlInput by remember(ollamaUrl) { mutableStateOf(ollamaUrl) }
     var ollamaModelList by remember { mutableStateOf<List<String>>(emptyList()) }
     var ollamaModelLoading by remember { mutableStateOf(false) }
     var ollamaModelError by remember { mutableStateOf(false) }
-    var ollamaModelInput by remember { mutableStateOf(ollamaModel) }
+    var ollamaModelInput by remember(ollamaModel) { mutableStateOf(ollamaModel) }
     var ollamaModelMenuExpanded by remember { mutableStateOf(false) }
 
-    var customUrlInput by remember { mutableStateOf(customUrl) }
-    var customApiKeyInput by remember { mutableStateOf(customApiKey) }
+    var customUrlInput by remember(customUrl) { mutableStateOf(customUrl) }
+    var customApiKeyInput by remember(customApiKey) { mutableStateOf(customApiKey) }
     var customModelList by remember { mutableStateOf<List<String>>(emptyList()) }
     var customModelLoading by remember { mutableStateOf(false) }
     var customModelError by remember { mutableStateOf(false) }
-    var customModelInput by remember { mutableStateOf(customModel) }
+    var customModelInput by remember(customModel) { mutableStateOf(customModel) }
     var customModelMenuExpanded by remember { mutableStateOf(false) }
     var showCustomApiKey by remember { mutableStateOf(false) }
 
@@ -475,7 +475,7 @@ fun SettingsScreen(
                 }
             }
 
-            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
+            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO && aiModel != AppSettings.MODEL_OLLAMA && aiModel != AppSettings.MODEL_CUSTOM) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
                 // Translation Style (only for AI models, below AI Model)
@@ -512,7 +512,7 @@ fun SettingsScreen(
                 }
             }
 
-            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
+            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO && aiModel != AppSettings.MODEL_OLLAMA && aiModel != AppSettings.MODEL_CUSTOM) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
                 // API Key
