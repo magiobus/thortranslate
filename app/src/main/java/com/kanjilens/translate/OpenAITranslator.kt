@@ -108,7 +108,7 @@ class ScreenTranslator(
                     val vision = if (model == AppSettings.MODEL_OLLAMA) ollamaVision else customVision
                     val prompt = getSystemPrompt(style, outputLanguage)
 
-                    val base64 = bitmapToBase64(bitmap)
+                    val base64 = if (vision) bitmapToBase64(bitmap) else ""
                     val ocrText = if (!vision) textRecognizer.recognizeText(bitmap) else null
 
                     val result = callOpenAICompatible(base64, endpoint, key, modelName, vision, prompt, ocrText)
@@ -350,11 +350,11 @@ class ScreenTranslator(
     suspend fun fetchOllamaModels(baseUrl: String): List<String> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
-                .url("$baseUrl/api/tags")
+                .url("${baseUrl.trimEnd('/')}/api/tags")
                 .build()
             val response = client.newCall(request).execute()
-            val body = response.body?.string() ?: return@withContext emptyList()
             if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
             val json = JSONObject(body)
             val models = json.optJSONArray("models") ?: return@withContext emptyList()
             (0 until models.length()).map { models.getJSONObject(it).getString("name") }
@@ -368,8 +368,8 @@ class ScreenTranslator(
             val requestBuilder = Request.Builder().url("$baseUrl/v1/models")
             if (apiKey.isNotEmpty()) requestBuilder.addHeader("Authorization", "Bearer $apiKey")
             val response = client.newCall(requestBuilder.build()).execute()
-            val body = response.body?.string() ?: return@withContext emptyList()
             if (!response.isSuccessful) return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList()
             val json = JSONObject(body)
             val data = json.optJSONArray("data") ?: return@withContext emptyList()
             (0 until data.length()).map { data.getJSONObject(it).getString("id") }
