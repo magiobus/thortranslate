@@ -82,12 +82,41 @@ class ScreenTranslator(
         style: Int = STYLE_AUTO,
         model: Int = AppSettings.MODEL_GPT4O_MINI,
         outputLanguage: String = AppSettings.LANG_ENGLISH,
+        ollamaUrl: String = "",
+        ollamaModel: String = "",
+        ollamaVision: Boolean = true,
+        customUrl: String = "",
+        customApiKey: String = "",
+        customModel: String = "",
+        customVision: Boolean = true,
         onDownloading: (() -> Unit)? = null,
     ): TranslateResult {
         return withContext(Dispatchers.IO) {
             try {
                 if (model == AppSettings.MODEL_MLKIT_OFFLINE) {
                     return@withContext translateOffline(bitmap, outputLanguage, onDownloading)
+                }
+
+                if (model == AppSettings.MODEL_OLLAMA || model == AppSettings.MODEL_CUSTOM) {
+                    val endpoint = if (model == AppSettings.MODEL_OLLAMA) {
+                        "${ollamaUrl.trimEnd('/')}/v1/chat/completions"
+                    } else {
+                        "${customUrl.trimEnd('/')}/v1/chat/completions"
+                    }
+                    val key = if (model == AppSettings.MODEL_CUSTOM) customApiKey else ""
+                    val modelName = if (model == AppSettings.MODEL_OLLAMA) ollamaModel else customModel
+                    val vision = if (model == AppSettings.MODEL_OLLAMA) ollamaVision else customVision
+                    val prompt = getSystemPrompt(style, outputLanguage)
+
+                    val base64 = bitmapToBase64(bitmap)
+                    val ocrText = if (!vision) textRecognizer.recognizeText(bitmap) else null
+
+                    val result = callOpenAICompatible(base64, endpoint, key, modelName, vision, prompt, ocrText)
+                    return@withContext if (result != null) {
+                        TranslateResult.Success(result)
+                    } else {
+                        TranslateResult.Error("Translation failed. Check your endpoint and model settings.")
+                    }
                 }
 
                 val base64Image = bitmapToBase64(bitmap)
@@ -248,6 +277,105 @@ class ScreenTranslator(
             .getJSONArray("parts")
             .getJSONObject(0)
             .getString("text")
+    }
+
+    private fun callOpenAICompatible(
+        base64Image: String,
+        endpoint: String,
+        apiKey: String,
+        model: String,
+        vision: Boolean,
+        systemPrompt: String,
+        ocrText: String? = null,
+    ): String? {
+        val userContent = if (vision) {
+            JSONArray().apply {
+                put(JSONObject().apply {
+                    put("type", "text")
+                    put("text", "Translate this game screen.")
+                })
+                put(JSONObject().apply {
+                    put("type", "image_url")
+                    put("image_url", JSONObject().apply {
+                        put("url", "data:image/jpeg;base64,$base64Image")
+                        put("detail", "low")
+                    })
+                })
+            }
+        } else {
+            ocrText ?: return null
+        }
+
+        val body = JSONObject().apply {
+            put("model", model)
+            put("max_tokens", 1000)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "system")
+                    put("content", systemPrompt)
+                })
+                put(JSONObject().apply {
+                    put("role", "user")
+                    if (vision) {
+                        put("content", userContent)
+                    } else {
+                        put("content", "Translate this game screen text:\n\n$userContent")
+                    }
+                })
+            })
+        }
+
+        val requestBuilder = Request.Builder()
+            .url(endpoint)
+            .addHeader("Content-Type", "application/json")
+            .post(body.toString().toRequestBody("application/json".toMediaType()))
+
+        if (apiKey.isNotEmpty()) {
+            requestBuilder.addHeader("Authorization", "Bearer $apiKey")
+        }
+
+        val response = client.newCall(requestBuilder.build()).execute()
+        val responseBody = response.body?.string() ?: return null
+        if (!response.isSuccessful) return null
+
+        val json = JSONObject(responseBody)
+        val choices = json.optJSONArray("choices") ?: return null
+        return if (choices.length() > 0) {
+            choices.getJSONObject(0)
+                .getJSONObject("message")
+                .getString("content")
+        } else null
+    }
+
+    suspend fun fetchOllamaModels(baseUrl: String): List<String> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/api/tags")
+                .build()
+            val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val json = JSONObject(body)
+            val models = json.optJSONArray("models") ?: return@withContext emptyList()
+            (0 until models.length()).map { models.getJSONObject(it).getString("name") }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun fetchOpenAIModels(baseUrl: String, apiKey: String): List<String> = withContext(Dispatchers.IO) {
+        try {
+            val requestBuilder = Request.Builder().url("$baseUrl/v1/models")
+            if (apiKey.isNotEmpty()) requestBuilder.addHeader("Authorization", "Bearer $apiKey")
+            val response = client.newCall(requestBuilder.build()).execute()
+            val body = response.body?.string() ?: return@withContext emptyList()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val json = JSONObject(body)
+            val data = json.optJSONArray("data") ?: return@withContext emptyList()
+            (0 until data.length()).map { data.getJSONObject(it).getString("id") }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
