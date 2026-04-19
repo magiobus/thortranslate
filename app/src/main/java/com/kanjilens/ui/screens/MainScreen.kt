@@ -186,6 +186,13 @@ fun MainScreen(
             when (val result = translator.translateScreen(
                 bitmap, apiKey, translateStyle, aiModel, outputLanguage,
                 onDownloading = { onTranslateStateChange(CaptureState.DownloadingModel) },
+                ollamaUrl = settings.ollamaUrl.value,
+                ollamaModel = settings.ollamaModel.value,
+                ollamaVision = settings.ollamaVision.value,
+                customUrl = settings.customUrl.value,
+                customApiKey = settings.customApiKey.value,
+                customModel = settings.customModel.value,
+                customVision = settings.customVision.value,
             )) {
                 is TranslateResult.Success -> {
                     onTranslateStateChange(CaptureState.TranslateSuccess(
@@ -232,6 +239,13 @@ fun MainScreen(
             when (val result = translator.translateScreen(
                 bitmap, "", AppSettings.TRANSLATE_STYLE_AUTO, AppSettings.MODEL_MLKIT_OFFLINE, outputLanguage,
                 onDownloading = { onTranslateStateChange(CaptureState.DownloadingModel) },
+                ollamaUrl = settings.ollamaUrl.value,
+                ollamaModel = settings.ollamaModel.value,
+                ollamaVision = settings.ollamaVision.value,
+                customUrl = settings.customUrl.value,
+                customApiKey = settings.customApiKey.value,
+                customModel = settings.customModel.value,
+                customVision = settings.customVision.value,
             )) {
                 is TranslateResult.Success -> {
                     onTranslateStateChange(CaptureState.TranslateSuccess(
