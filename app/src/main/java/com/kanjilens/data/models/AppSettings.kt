@@ -31,6 +31,8 @@ class AppSettings(context: Context) {
         const val MODEL_GEMINI_FLASH = 1
         const val MODEL_MLKIT_OFFLINE = 2
         const val MODEL_MLKIT_OFFLINE_AUTO = 3
+        const val MODEL_OLLAMA = 4
+        const val MODEL_CUSTOM = 5
 
         private const val KEY_OUTPUT_LANGUAGE = "output_language"
         private const val KEY_CROP_LEFT = "crop_left"
@@ -38,6 +40,13 @@ class AppSettings(context: Context) {
         private const val KEY_CROP_RIGHT = "crop_right"
         private const val KEY_CROP_BOTTOM = "crop_bottom"
         private const val KEY_CROP_ENABLED = "crop_enabled"
+        private const val KEY_OLLAMA_URL = "ollama_url"
+        private const val KEY_OLLAMA_MODEL = "ollama_model"
+        private const val KEY_OLLAMA_VISION = "ollama_vision"
+        private const val KEY_CUSTOM_URL = "custom_url"
+        private const val KEY_CUSTOM_API_KEY = "custom_api_key"
+        private const val KEY_CUSTOM_MODEL = "custom_model"
+        private const val KEY_CUSTOM_VISION = "custom_vision"
 
         const val LANG_ENGLISH = "en"
         const val LANG_SPANISH = "es"
@@ -76,6 +85,27 @@ class AppSettings(context: Context) {
 
     private val _geminiApiKey = MutableStateFlow(prefs.getString(KEY_GEMINI_API_KEY, "") ?: "")
     val geminiApiKey: StateFlow<String> = _geminiApiKey
+
+    private val _ollamaUrl = MutableStateFlow(prefs.getString(KEY_OLLAMA_URL, "http://192.168.1.x:11434") ?: "http://192.168.1.x:11434")
+    val ollamaUrl: StateFlow<String> = _ollamaUrl
+
+    private val _ollamaModel = MutableStateFlow(prefs.getString(KEY_OLLAMA_MODEL, "") ?: "")
+    val ollamaModel: StateFlow<String> = _ollamaModel
+
+    private val _ollamaVision = MutableStateFlow(prefs.getBoolean(KEY_OLLAMA_VISION, true))
+    val ollamaVision: StateFlow<Boolean> = _ollamaVision
+
+    private val _customUrl = MutableStateFlow(prefs.getString(KEY_CUSTOM_URL, "") ?: "")
+    val customUrl: StateFlow<String> = _customUrl
+
+    private val _customApiKey = MutableStateFlow(prefs.getString(KEY_CUSTOM_API_KEY, "") ?: "")
+    val customApiKey: StateFlow<String> = _customApiKey
+
+    private val _customModel = MutableStateFlow(prefs.getString(KEY_CUSTOM_MODEL, "") ?: "")
+    val customModel: StateFlow<String> = _customModel
+
+    private val _customVision = MutableStateFlow(prefs.getBoolean(KEY_CUSTOM_VISION, true))
+    val customVision: StateFlow<Boolean> = _customVision
 
     private val _appMode = MutableStateFlow(prefs.getInt(KEY_APP_MODE, MODE_TRANSLATE))
     val appMode: StateFlow<Int> = _appMode
@@ -128,6 +158,8 @@ class AppSettings(context: Context) {
         get() = when (_aiModel.value) {
             MODEL_GEMINI_FLASH -> _geminiApiKey.value
             MODEL_MLKIT_OFFLINE, MODEL_MLKIT_OFFLINE_AUTO -> ""
+            MODEL_OLLAMA -> ""
+            MODEL_CUSTOM -> _customApiKey.value
             else -> _openaiApiKey.value
         }
 
@@ -164,5 +196,40 @@ class AppSettings(context: Context) {
     fun setOutputLanguage(lang: String) {
         _outputLanguage.value = lang
         prefs.edit().putString(KEY_OUTPUT_LANGUAGE, lang).apply()
+    }
+
+    fun setOllamaUrl(url: String) {
+        _ollamaUrl.value = url
+        prefs.edit().putString(KEY_OLLAMA_URL, url).apply()
+    }
+
+    fun setOllamaModel(model: String) {
+        _ollamaModel.value = model
+        prefs.edit().putString(KEY_OLLAMA_MODEL, model).apply()
+    }
+
+    fun setOllamaVision(vision: Boolean) {
+        _ollamaVision.value = vision
+        prefs.edit().putBoolean(KEY_OLLAMA_VISION, vision).apply()
+    }
+
+    fun setCustomUrl(url: String) {
+        _customUrl.value = url
+        prefs.edit().putString(KEY_CUSTOM_URL, url).apply()
+    }
+
+    fun setCustomApiKey(key: String) {
+        _customApiKey.value = key
+        prefs.edit().putString(KEY_CUSTOM_API_KEY, key).apply()
+    }
+
+    fun setCustomModel(model: String) {
+        _customModel.value = model
+        prefs.edit().putString(KEY_CUSTOM_MODEL, model).apply()
+    }
+
+    fun setCustomVision(vision: Boolean) {
+        _customVision.value = vision
+        prefs.edit().putBoolean(KEY_CUSTOM_VISION, vision).apply()
     }
 }

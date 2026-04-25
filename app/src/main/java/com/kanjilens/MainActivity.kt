@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
                 when (currentScreen) {
                     "settings" -> SettingsScreen(
                         settings = settings,
+                        screenTranslator = translator,
                         onBack = { currentScreen = "main" },
                     )
                     "help" -> HelpScreen(
