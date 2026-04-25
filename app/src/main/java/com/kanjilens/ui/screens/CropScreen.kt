@@ -1,6 +1,7 @@
 package com.kanjilens.ui.screens
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,7 +56,7 @@ fun CropScreen(
 
     // Initialize from saved crop or default to full
     val savedCrop = settings.cropRegion
-    val hasSavedCrop = settings.cropEnabled.value
+    val hasSavedCrop by settings.cropEnabled.collectAsState()
     var startOffset by remember { mutableStateOf<Offset?>(
         if (hasSavedCrop) Offset(savedCrop.left, savedCrop.top) else null
     ) }

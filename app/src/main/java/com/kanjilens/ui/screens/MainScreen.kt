@@ -84,6 +84,9 @@ fun MainScreen(
     val appMode by settings.appMode.collectAsState()
     val translateStyle by settings.translateStyle.collectAsState()
     val aiModel by settings.aiModel.collectAsState()
+    val ollamaModel by settings.ollamaModel.collectAsState()
+    val customModel by settings.customModel.collectAsState()
+    val customApiKey by settings.customApiKey.collectAsState()
     val openaiKey by settings.openaiApiKey.collectAsState()
     val geminiKey by settings.geminiApiKey.collectAsState()
     val outputLanguage by settings.outputLanguage.collectAsState()
@@ -91,6 +94,8 @@ fun MainScreen(
     val apiKey = when (aiModel) {
         AppSettings.MODEL_GEMINI_FLASH -> geminiKey
         AppSettings.MODEL_MLKIT_OFFLINE, AppSettings.MODEL_MLKIT_OFFLINE_AUTO -> ""
+        AppSettings.MODEL_OLLAMA -> ""
+        AppSettings.MODEL_CUSTOM -> customApiKey
         else -> openaiKey
     }
 
@@ -168,7 +173,10 @@ fun MainScreen(
 
     fun doTranslateCapture() {
         scope.launch {
-            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && apiKey.isBlank()) {
+            val needsKey = aiModel != AppSettings.MODEL_MLKIT_OFFLINE &&
+                aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO &&
+                aiModel != AppSettings.MODEL_OLLAMA
+            if (needsKey && apiKey.isBlank()) {
                 onTranslateStateChange(CaptureState.Error("Add your API key in Settings"))
                 return@launch
             }
@@ -341,6 +349,8 @@ fun MainScreen(
         AppSettings.MODEL_GEMINI_FLASH -> "Gemini"
         AppSettings.MODEL_MLKIT_OFFLINE -> "Offline"
         AppSettings.MODEL_MLKIT_OFFLINE_AUTO -> "Auto"
+        AppSettings.MODEL_OLLAMA -> if (ollamaModel.isNotEmpty()) ollamaModel else "Ollama"
+        AppSettings.MODEL_CUSTOM -> if (customModel.isNotEmpty()) customModel else "Custom"
         else -> "GPT-4o"
     }
 
@@ -438,6 +448,22 @@ fun MainScreen(
                                     modelMenuExpanded = false
                                 },
                             )
+                            DropdownMenuItem(
+                                text = { Text(if (ollamaModel.isNotEmpty()) "Ollama ($ollamaModel)" else "Ollama") },
+                                onClick = {
+                                    stopAutoMode()
+                                    settings.setAiModel(AppSettings.MODEL_OLLAMA)
+                                    modelMenuExpanded = false
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (customModel.isNotEmpty()) "Custom ($customModel)" else "Custom") },
+                                onClick = {
+                                    stopAutoMode()
+                                    settings.setAiModel(AppSettings.MODEL_CUSTOM)
+                                    modelMenuExpanded = false
+                                },
+                            )
                         }
                     }
                     IconButton(onClick = onHelpClick) {
@@ -521,6 +547,8 @@ fun MainScreen(
                             } else {
                                 val modelName = when (aiModel) {
                                     AppSettings.MODEL_GEMINI_FLASH -> "Gemini Flash"
+                                    AppSettings.MODEL_OLLAMA -> if (ollamaModel.isNotEmpty()) ollamaModel else "Ollama"
+                                    AppSettings.MODEL_CUSTOM -> if (customModel.isNotEmpty()) customModel else "Custom"
                                     else -> "GPT-4o mini"
                                 }
                                 val styleName = when (translateStyle) {

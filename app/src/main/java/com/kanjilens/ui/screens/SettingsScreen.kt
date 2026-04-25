@@ -475,7 +475,7 @@ fun SettingsScreen(
                 }
             }
 
-            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO && aiModel != AppSettings.MODEL_OLLAMA && aiModel != AppSettings.MODEL_CUSTOM) {
+            if (aiModel != AppSettings.MODEL_MLKIT_OFFLINE && aiModel != AppSettings.MODEL_MLKIT_OFFLINE_AUTO) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
                 // Translation Style (only for AI models, below AI Model)
